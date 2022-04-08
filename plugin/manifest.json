@@ -1,0 +1,20 @@
+{
+  "uuid": "elephant",
+  "name": "Elephant",
+  "description": "Provides support for downloading videos from various sites.",
+  "version": "1.0.0",
+  "icon": "icon.svg",
+  "mediaParser": true,
+  "mediaListParser": true,
+  "dependencies": {
+    "Python": {"minVersion": "3.6"}
+  },
+  "permissions": [
+    "launchPython"
+  ],
+  "scripts": [
+    "msabstractparser.js",
+    "msparser.js",
+    "msbatchparser.js"
+  ]
+}
