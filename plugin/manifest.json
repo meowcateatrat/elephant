@@ -2,7 +2,7 @@
   "uuid": "elephant",
   "name": "Elephant",
   "description": "Provides support for downloading videos from various sites.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "icon": "icon.svg",
   "mediaParser": true,
   "mediaListParser": true,
