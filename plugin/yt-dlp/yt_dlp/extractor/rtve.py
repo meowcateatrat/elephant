@@ -1,26 +1,18 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import base64
 import io
-import sys
+import struct
 
 from .common import InfoExtractor
-from ..compat import (
-    compat_b64decode,
-    compat_struct_unpack,
-)
+from ..compat import compat_b64decode
 from ..utils import (
-    determine_ext,
     ExtractorError,
+    determine_ext,
     float_or_none,
     qualities,
     remove_end,
     remove_start,
     try_get,
 )
-
-_bytes_to_chr = (lambda x: x) if sys.version_info[0] == 2 else (lambda x: map(chr, x))
 
 
 class RTVEALaCartaIE(InfoExtractor):
@@ -79,7 +71,7 @@ class RTVEALaCartaIE(InfoExtractor):
     def _decrypt_url(png):
         encrypted_data = io.BytesIO(compat_b64decode(png)[8:])
         while True:
-            length = compat_struct_unpack('!I', encrypted_data.read(4))[0]
+            length = struct.unpack('!I', encrypted_data.read(4))[0]
             chunk_type = encrypted_data.read(4)
             if chunk_type == b'IEND':
                 break
@@ -90,7 +82,7 @@ class RTVEALaCartaIE(InfoExtractor):
                 alphabet = []
                 e = 0
                 d = 0
-                for l in _bytes_to_chr(alphabet_data):
+                for l in alphabet_data.decode('iso-8859-1'):
                     if d == 0:
                         alphabet.append(l)
                         d = e = (e + 1) % 4
@@ -100,7 +92,7 @@ class RTVEALaCartaIE(InfoExtractor):
                 f = 0
                 e = 3
                 b = 1
-                for letter in _bytes_to_chr(url_data):
+                for letter in url_data.decode('iso-8859-1'):
                     if f == 0:
                         l = int(letter) * 10
                         f = 1

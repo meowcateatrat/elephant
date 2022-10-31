@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import re
 
 from .amp import AMPIE
@@ -58,13 +56,15 @@ class FoxNewsIE(AMPIE):
         },
     ]
 
-    @staticmethod
-    def _extract_urls(webpage):
-        return [
-            mobj.group('url')
-            for mobj in re.finditer(
-                r'<(?:amp-)?iframe[^>]+\bsrc=(["\'])(?P<url>(?:https?:)?//video\.foxnews\.com/v/video-embed\.html?.*?\bvideo_id=\d+.*?)\1',
-                webpage)]
+    @classmethod
+    def _extract_embed_urls(cls, url, webpage):
+        for mobj in re.finditer(
+                r'''(?x)
+                    <(?:script|(?:amp-)?iframe)[^>]+\bsrc=["\']
+                    (?:https?:)?//video\.foxnews\.com/v/(?:video-embed\.html|embed\.js)\?
+                    (?:[^>"\']+&)?(?:video_)?id=(?P<video_id>\d+)
+                ''', webpage):
+            yield f'https://video.foxnews.com/v/video-embed.html?video_id={mobj.group("video_id")}'
 
     def _real_extract(self, url):
         host, video_id = self._match_valid_url(url).groups()
@@ -124,4 +124,4 @@ class FoxNewsArticleIE(InfoExtractor):
                 'http://video.foxnews.com/v/' + video_id, FoxNewsIE.ie_key())
 
         return self.url_result(
-            FoxNewsIE._extract_urls(webpage)[0], FoxNewsIE.ie_key())
+            next(FoxNewsIE._extract_embed_urls(url, webpage)), FoxNewsIE.ie_key())

@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-from __future__ import unicode_literals
 
 # Execute with
-# $ python yt_dlp/__main__.py (2.6+)
-# $ python -m yt_dlp          (2.7+)
+# $ python -m yt_dlp
 
 import sys
 
@@ -16,4 +14,5 @@ if __package__ is None and not hasattr(sys, 'frozen'):
 import yt_dlp
 
 if __name__ == '__main__':
+    yt_dlp._IN_CLI = True
     yt_dlp.main()

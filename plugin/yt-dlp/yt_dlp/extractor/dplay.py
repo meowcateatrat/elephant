@@ -1,6 +1,3 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import json
 import uuid
 
@@ -11,6 +8,7 @@ from ..utils import (
     ExtractorError,
     float_or_none,
     int_or_none,
+    remove_start,
     strip_or_none,
     try_get,
     unified_timestamp,
@@ -314,7 +312,7 @@ class DPlayIE(DPlayBaseIE):
     def _real_extract(self, url):
         mobj = self._match_valid_url(url)
         display_id = mobj.group('id')
-        domain = mobj.group('domain').lstrip('www.')
+        domain = remove_start(mobj.group('domain'), 'www.')
         country = mobj.group('country') or mobj.group('subdomain_country') or mobj.group('plus_country')
         host = 'disco-api.' + domain if domain[0] == 'd' else 'eu2-prod.disco-api.com'
         return self._get_disco_api_info(
@@ -720,6 +718,33 @@ class TLCIE(DiscoveryPlusBaseIE):
     }
 
 
+class MotorTrendIE(DiscoveryPlusBaseIE):
+    _VALID_URL = r'https?://(?:watch\.)?motortrend\.com/video' + DPlayBaseIE._PATH_REGEX
+    _TESTS = [{
+        'url': 'https://watch.motortrend.com/video/car-issues-motortrend-atve-us/double-dakotas',
+        'info_dict': {
+            'id': '"4859182"',
+            'display_id': 'double-dakotas',
+            'ext': 'mp4',
+            'title': 'Double Dakotas',
+            'description': 'Tylers buy-one-get-one Dakota deal has the Wizard pulling double duty.',
+            'season_number': 2,
+            'episode_number': 3,
+        },
+        'skip': 'Available for Premium users',
+    }, {
+        'url': 'https://watch.motortrend.com/video/car-issues-motortrend-atve-us/double-dakotas',
+        'only_matching': True,
+    }]
+
+    _PRODUCT = 'vel'
+    _DISCO_API_PARAMS = {
+        'disco_host': 'us1-prod-direct.watch.motortrend.com',
+        'realm': 'go',
+        'country': 'us',
+    }
+
+
 class DiscoveryPlusIE(DiscoveryPlusBaseIE):
     _VALID_URL = r'https?://(?:www\.)?discoveryplus\.com/(?!it/)(?:\w{2}/)?video' + DPlayBaseIE._PATH_REGEX
     _TESTS = [{
@@ -882,6 +907,9 @@ class DiscoveryPlusItalyIE(DiscoveryPlusBaseIE):
     _TESTS = [{
         'url': 'https://www.discoveryplus.com/it/video/i-signori-della-neve/stagione-2-episodio-1-i-preparativi',
         'only_matching': True,
+    }, {
+        'url': 'https://www.discoveryplus.com/it/video/super-benny/trailer',
+        'only_matching': True,
     }]
 
     _PRODUCT = 'dplus_us'
@@ -890,6 +918,13 @@ class DiscoveryPlusItalyIE(DiscoveryPlusBaseIE):
         'realm': 'dplay',
         'country': 'it',
     }
+
+    def _update_disco_api_headers(self, headers, disco_base, display_id, realm):
+        headers.update({
+            'x-disco-params': 'realm=%s' % realm,
+            'x-disco-client': f'WEB:UNKNOWN:{self._PRODUCT}:25.2.6',
+            'Authorization': self._get_auth(disco_base, display_id, realm),
+        })
 
 
 class DiscoveryPlusItalyShowIE(DiscoveryPlusShowBaseIE):

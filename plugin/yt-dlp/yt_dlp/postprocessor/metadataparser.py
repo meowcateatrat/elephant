@@ -1,31 +1,27 @@
 import re
-from enum import Enum
 
 from .common import PostProcessor
+from ..utils import Namespace, filter_dict
 
 
 class MetadataParserPP(PostProcessor):
-    class Actions(Enum):
-        INTERPRET = 'interpretter'
-        REPLACE = 'replacer'
-
     def __init__(self, downloader, actions):
-        PostProcessor.__init__(self, downloader)
+        super().__init__(downloader)
         self._actions = []
         for f in actions:
-            action = f[0]
-            assert isinstance(action, self.Actions)
-            self._actions.append(getattr(self, action.value)(*f[1:]))
+            action, *args = f
+            assert action in self.Actions
+            self._actions.append(action(self, *args))
 
     @classmethod
     def validate_action(cls, action, *data):
-        ''' Each action can be:
+        """Each action can be:
                 (Actions.INTERPRET, from, to) OR
                 (Actions.REPLACE, field, search, replace)
-        '''
-        if not isinstance(action, cls.Actions):
+        """
+        if action not in cls.Actions:
             raise ValueError(f'{action!r} is not a valid action')
-        getattr(cls, action.value)(cls, *data)  # So this can raise error to validate
+        action(cls, *data)  # So this can raise error to validate
 
     @staticmethod
     def field_to_template(tmpl):
@@ -72,9 +68,9 @@ class MetadataParserPP(PostProcessor):
             if match is None:
                 self.to_screen(f'Could not interpret {inp!r} as {out!r}')
                 return
-            for attribute, value in match.groupdict().items():
+            for attribute, value in filter_dict(match.groupdict()).items():
                 info[attribute] = value
-                self.to_screen('Parsed %s from %r: %r' % (attribute, template, value if value is not None else 'NA'))
+                self.to_screen(f'Parsed {attribute} from {template!r}: {value!r}')
 
         template = self.field_to_template(inp)
         out_re = re.compile(self.format_to_regex(out))
@@ -98,6 +94,8 @@ class MetadataParserPP(PostProcessor):
 
         search_re = re.compile(search)
         return f
+
+    Actions = Namespace(INTERPRET=interpretter, REPLACE=replacer)
 
 
 class MetadataFromFieldPP(MetadataParserPP):

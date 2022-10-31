@@ -1,11 +1,10 @@
-# coding: utf-8
-
 import base64
 import hashlib
 import itertools
 import functools
-import re
 import math
+import re
+import urllib
 
 from .common import InfoExtractor, SearchInfoExtractor
 from ..compat import (
@@ -15,22 +14,24 @@ from ..compat import (
 )
 from ..utils import (
     ExtractorError,
+    InAdvancePagedList,
+    OnDemandPagedList,
     filter_dict,
-    int_or_none,
     float_or_none,
+    int_or_none,
     mimetype2ext,
-    parse_iso8601,
-    traverse_obj,
     parse_count,
+    parse_iso8601,
+    qualities,
     smuggle_url,
     srt_subtitles_timecode,
     str_or_none,
     strip_jsonp,
+    traverse_obj,
     unified_timestamp,
     unsmuggle_url,
     urlencode_postdata,
     url_or_none,
-    OnDemandPagedList
 )
 
 
@@ -219,6 +220,9 @@ class BiliBiliIE(InfoExtractor):
 
         durl = traverse_obj(video_info, ('dash', 'video'))
         audios = traverse_obj(video_info, ('dash', 'audio')) or []
+        flac_audio = traverse_obj(video_info, ('dash', 'flac', 'audio'))
+        if flac_audio:
+            audios.append(flac_audio)
         entries = []
 
         RENDITIONS = ('qn=80&quality=80&type=', 'quality=2&type=mp4')
@@ -503,39 +507,135 @@ class BiliBiliBangumiIE(InfoExtractor):
             season_info.get('bangumi_title'), season_info.get('evaluate'))
 
 
-class BilibiliChannelIE(InfoExtractor):
-    _VALID_URL = r'https?://space.bilibili\.com/(?P<id>\d+)'
-    _API_URL = "https://api.bilibili.com/x/space/arc/search?mid=%s&pn=%d&jsonp=jsonp"
+class BilibiliSpaceBaseIE(InfoExtractor):
+    def _extract_playlist(self, fetch_page, get_metadata, get_entries):
+        first_page = fetch_page(0)
+        metadata = get_metadata(first_page)
+
+        paged_list = InAdvancePagedList(
+            lambda idx: get_entries(fetch_page(idx) if idx else first_page),
+            metadata['page_count'], metadata['page_size'])
+
+        return metadata, paged_list
+
+
+class BilibiliSpaceVideoIE(BilibiliSpaceBaseIE):
+    _VALID_URL = r'https?://space\.bilibili\.com/(?P<id>\d+)(?P<video>/video)?/?(?:[?#]|$)'
     _TESTS = [{
         'url': 'https://space.bilibili.com/3985676/video',
-        'info_dict': {},
-        'playlist_mincount': 112,
+        'info_dict': {
+            'id': '3985676',
+        },
+        'playlist_mincount': 178,
     }]
 
-    def _entries(self, list_id):
-        count, max_count = 0, None
+    def _real_extract(self, url):
+        playlist_id, is_video_url = self._match_valid_url(url).group('id', 'video')
+        if not is_video_url:
+            self.to_screen('A channel URL was given. Only the channel\'s videos will be downloaded. '
+                           'To download audios, add a "/audio" to the URL')
 
-        for page_num in itertools.count(1):
-            data = self._download_json(
-                self._API_URL % (list_id, page_num), list_id, note=f'Downloading page {page_num}')['data']
+        def fetch_page(page_idx):
+            try:
+                response = self._download_json('https://api.bilibili.com/x/space/arc/search',
+                                               playlist_id, note=f'Downloading page {page_idx}',
+                                               query={'mid': playlist_id, 'pn': page_idx + 1, 'jsonp': 'jsonp'})
+            except ExtractorError as e:
+                if isinstance(e.cause, urllib.error.HTTPError) and e.cause.code == 412:
+                    raise ExtractorError(
+                        'Request is blocked by server (412), please add cookies, wait and try later.', expected=True)
+                raise
+            if response['code'] == -401:
+                raise ExtractorError(
+                    'Request is blocked by server (401), please add cookies, wait and try later.', expected=True)
+            return response['data']
 
-            max_count = max_count or traverse_obj(data, ('page', 'count'))
+        def get_metadata(page_data):
+            page_size = page_data['page']['ps']
+            entry_count = page_data['page']['count']
+            return {
+                'page_count': math.ceil(entry_count / page_size),
+                'page_size': page_size,
+            }
 
-            entries = traverse_obj(data, ('list', 'vlist'))
-            if not entries:
-                return
-            for entry in entries:
-                yield self.url_result(
-                    'https://www.bilibili.com/video/%s' % entry['bvid'],
-                    BiliBiliIE.ie_key(), entry['bvid'])
+        def get_entries(page_data):
+            for entry in traverse_obj(page_data, ('list', 'vlist')) or []:
+                yield self.url_result(f'https://www.bilibili.com/video/{entry["bvid"]}', BiliBiliIE, entry['bvid'])
 
-            count += len(entries)
-            if max_count and count >= max_count:
-                return
+        metadata, paged_list = self._extract_playlist(fetch_page, get_metadata, get_entries)
+        return self.playlist_result(paged_list, playlist_id)
+
+
+class BilibiliSpaceAudioIE(BilibiliSpaceBaseIE):
+    _VALID_URL = r'https?://space\.bilibili\.com/(?P<id>\d+)/audio'
+    _TESTS = [{
+        'url': 'https://space.bilibili.com/3985676/audio',
+        'info_dict': {
+            'id': '3985676',
+        },
+        'playlist_mincount': 1,
+    }]
 
     def _real_extract(self, url):
-        list_id = self._match_id(url)
-        return self.playlist_result(self._entries(list_id), list_id)
+        playlist_id = self._match_id(url)
+
+        def fetch_page(page_idx):
+            return self._download_json(
+                'https://api.bilibili.com/audio/music-service/web/song/upper', playlist_id,
+                note=f'Downloading page {page_idx}',
+                query={'uid': playlist_id, 'pn': page_idx + 1, 'ps': 30, 'order': 1, 'jsonp': 'jsonp'})['data']
+
+        def get_metadata(page_data):
+            return {
+                'page_count': page_data['pageCount'],
+                'page_size': page_data['pageSize'],
+            }
+
+        def get_entries(page_data):
+            for entry in page_data.get('data', []):
+                yield self.url_result(f'https://www.bilibili.com/audio/au{entry["id"]}', BilibiliAudioIE, entry['id'])
+
+        metadata, paged_list = self._extract_playlist(fetch_page, get_metadata, get_entries)
+        return self.playlist_result(paged_list, playlist_id)
+
+
+class BilibiliSpacePlaylistIE(BilibiliSpaceBaseIE):
+    _VALID_URL = r'https?://space.bilibili\.com/(?P<mid>\d+)/channel/collectiondetail\?sid=(?P<sid>\d+)'
+    _TESTS = [{
+        'url': 'https://space.bilibili.com/2142762/channel/collectiondetail?sid=57445',
+        'info_dict': {
+            'id': '2142762_57445',
+            'title': '《底特律 变人》'
+        },
+        'playlist_mincount': 31,
+    }]
+
+    def _real_extract(self, url):
+        mid, sid = self._match_valid_url(url).group('mid', 'sid')
+        playlist_id = f'{mid}_{sid}'
+
+        def fetch_page(page_idx):
+            return self._download_json(
+                'https://api.bilibili.com/x/polymer/space/seasons_archives_list',
+                playlist_id, note=f'Downloading page {page_idx}',
+                query={'mid': mid, 'season_id': sid, 'page_num': page_idx + 1, 'page_size': 30})['data']
+
+        def get_metadata(page_data):
+            page_size = page_data['page']['page_size']
+            entry_count = page_data['page']['total']
+            return {
+                'page_count': math.ceil(entry_count / page_size),
+                'page_size': page_size,
+                'title': traverse_obj(page_data, ('meta', 'name'))
+            }
+
+        def get_entries(page_data):
+            for entry in page_data.get('archives', []):
+                yield self.url_result(f'https://www.bilibili.com/video/{entry["bvid"]}',
+                                      BiliBiliIE, entry['bvid'])
+
+        metadata, paged_list = self._extract_playlist(fetch_page, get_metadata, get_entries)
+        return self.playlist_result(paged_list, playlist_id, metadata['title'])
 
 
 class BilibiliCategoryIE(InfoExtractor):
@@ -621,14 +721,15 @@ class BiliBiliSearchIE(SearchInfoExtractor):
                     'keyword': query,
                     'page': page_num,
                     'context': '',
-                    'order': 'pubdate',
                     'duration': 0,
                     'tids_2': '',
                     '__refresh__': 'true',
                     'search_type': 'video',
                     'tids': 0,
                     'highlight': 1,
-                })['data'].get('result') or []
+                })['data'].get('result')
+            if not videos:
+                break
             for video in videos:
                 yield self.url_result(video['arcurl'], 'BiliBili', str(video['aid']))
 
@@ -677,6 +778,11 @@ class BilibiliAudioIE(BilibiliAudioBaseIE):
             'filesize': int_or_none(play_data.get('size')),
             'vcodec': 'none'
         }]
+
+        for a_format in formats:
+            a_format.setdefault('http_headers', {}).update({
+                'Referer': url,
+            })
 
         song = self._call_api('song/info', au_id)
         title = song['title']
@@ -785,17 +891,20 @@ class BiliIntlBaseIE(InfoExtractor):
     def json2srt(self, json):
         data = '\n\n'.join(
             f'{i + 1}\n{srt_subtitles_timecode(line["from"])} --> {srt_subtitles_timecode(line["to"])}\n{line["content"]}'
-            for i, line in enumerate(json['body']) if line.get('content'))
+            for i, line in enumerate(traverse_obj(json, (
+                'body', lambda _, l: l['content'] and l['from'] and l['to']))))
         return data
 
     def _get_subtitles(self, *, ep_id=None, aid=None):
         sub_json = self._call_api(
-            '/web/v2/subtitle', ep_id or aid, note='Downloading subtitles list',
-            errnote='Unable to download subtitles list', query=filter_dict({
+            '/web/v2/subtitle', ep_id or aid, fatal=False,
+            note='Downloading subtitles list', errnote='Unable to download subtitles list',
+            query=filter_dict({
                 'platform': 'web',
+                's_locale': 'en_US',
                 'episode_id': ep_id,
                 'aid': aid,
-            }))
+            })) or {}
         subtitles = {}
         for sub in sub_json.get('subtitles') or []:
             sub_url = sub.get('url')
@@ -898,7 +1007,7 @@ class BiliIntlBaseIE(InfoExtractor):
 
 
 class BiliIntlIE(BiliIntlBaseIE):
-    _VALID_URL = r'https?://(?:www\.)?bili(?:bili\.tv|intl\.com)/(?:[a-z]{2}/)?(play/(?P<season_id>\d+)/(?P<ep_id>\d+)|video/(?P<aid>\d+))'
+    _VALID_URL = r'https?://(?:www\.)?bili(?:bili\.tv|intl\.com)/(?:[a-zA-Z]{2}/)?(play/(?P<season_id>\d+)/(?P<ep_id>\d+)|video/(?P<aid>\d+))'
     _TESTS = [{
         # Bstation page
         'url': 'https://www.bilibili.tv/en/play/34613/341736',
@@ -941,6 +1050,10 @@ class BiliIntlIE(BiliIntlBaseIE):
         # No language in URL
         'url': 'https://www.bilibili.tv/video/2019955076',
         'only_matching': True,
+    }, {
+        # Uppercase language in URL
+        'url': 'https://www.bilibili.tv/EN/video/2019955076',
+        'only_matching': True,
     }]
 
     def _real_extract(self, url):
@@ -948,12 +1061,11 @@ class BiliIntlIE(BiliIntlBaseIE):
         video_id = ep_id or aid
         webpage = self._download_webpage(url, video_id)
         # Bstation layout
-        initial_data = self._parse_json(self._search_regex(
-            r'window\.__INITIAL_(?:DATA|STATE)__\s*=\s*({.+?});', webpage,
-            'preload state', default='{}'), video_id, fatal=False) or {}
-        video_data = (
-            traverse_obj(initial_data, ('OgvVideo', 'epDetail'), expected_type=dict)
-            or traverse_obj(initial_data, ('UgcVideo', 'videoData'), expected_type=dict) or {})
+        initial_data = (
+            self._search_json(r'window\.__INITIAL_(?:DATA|STATE)__\s*=', webpage, 'preload state', video_id, default={})
+            or self._search_nuxt_data(webpage, video_id, '__initialState', fatal=False, traverse=None))
+        video_data = traverse_obj(
+            initial_data, ('OgvVideo', 'epDetail'), ('UgcVideo', 'videoData'), ('ugc', 'archive'), expected_type=dict)
 
         if season_id and not video_data:
             # Non-Bstation layout, read through episode list
@@ -961,11 +1073,11 @@ class BiliIntlIE(BiliIntlBaseIE):
             video_data = traverse_obj(season_json,
                                       ('sections', ..., 'episodes', lambda _, v: str(v['episode_id']) == ep_id),
                                       expected_type=dict, get_all=False)
-        return self._extract_video_info(video_data, ep_id=ep_id, aid=aid)
+        return self._extract_video_info(video_data or {}, ep_id=ep_id, aid=aid)
 
 
 class BiliIntlSeriesIE(BiliIntlBaseIE):
-    _VALID_URL = r'https?://(?:www\.)?bili(?:bili\.tv|intl\.com)/(?:[a-z]{2}/)?play/(?P<id>\d+)$'
+    _VALID_URL = r'https?://(?:www\.)?bili(?:bili\.tv|intl\.com)/(?:[a-zA-Z]{2}/)?play/(?P<id>\d+)/?(?:[?#]|$)'
     _TESTS = [{
         'url': 'https://www.bilibili.tv/en/play/34613',
         'playlist_mincount': 15,
@@ -983,6 +1095,9 @@ class BiliIntlSeriesIE(BiliIntlBaseIE):
     }, {
         'url': 'https://www.biliintl.com/en/play/34613',
         'only_matching': True,
+    }, {
+        'url': 'https://www.biliintl.com/EN/play/34613',
+        'only_matching': True,
     }]
 
     def _entries(self, series_id):
@@ -998,3 +1113,88 @@ class BiliIntlSeriesIE(BiliIntlBaseIE):
             self._entries(series_id), series_id, series_info.get('title'), series_info.get('description'),
             categories=traverse_obj(series_info, ('styles', ..., 'title'), expected_type=str_or_none),
             thumbnail=url_or_none(series_info.get('horizontal_cover')), view_count=parse_count(series_info.get('view')))
+
+
+class BiliLiveIE(InfoExtractor):
+    _VALID_URL = r'https?://live.bilibili.com/(?P<id>\d+)'
+
+    _TESTS = [{
+        'url': 'https://live.bilibili.com/196',
+        'info_dict': {
+            'id': '33989',
+            'description': "周六杂谈回，其他时候随机游戏。 | \n录播：@下播型泛式录播组。 | \n直播通知群（全员禁言）：666906670，902092584，59971⑧481 （功能一样，别多加）",
+            'ext': 'flv',
+            'title': "太空狼人杀联动，不被爆杀就算赢",
+            'thumbnail': "https://i0.hdslb.com/bfs/live/new_room_cover/e607bc1529057ef4b332e1026e62cf46984c314d.jpg",
+            'timestamp': 1650802769,
+        },
+        'skip': 'not live'
+    }, {
+        'url': 'https://live.bilibili.com/196?broadcast_type=0&is_room_feed=1?spm_id_from=333.999.space_home.strengthen_live_card.click',
+        'only_matching': True
+    }]
+
+    _FORMATS = {
+        80: {'format_id': 'low', 'format_note': '流畅'},
+        150: {'format_id': 'high_res', 'format_note': '高清'},
+        250: {'format_id': 'ultra_high_res', 'format_note': '超清'},
+        400: {'format_id': 'blue_ray', 'format_note': '蓝光'},
+        10000: {'format_id': 'source', 'format_note': '原画'},
+        20000: {'format_id': '4K', 'format_note': '4K'},
+        30000: {'format_id': 'dolby', 'format_note': '杜比'},
+    }
+
+    _quality = staticmethod(qualities(list(_FORMATS)))
+
+    def _call_api(self, path, room_id, query):
+        api_result = self._download_json(f'https://api.live.bilibili.com/{path}', room_id, query=query)
+        if api_result.get('code') != 0:
+            raise ExtractorError(api_result.get('message') or 'Unable to download JSON metadata')
+        return api_result.get('data') or {}
+
+    def _parse_formats(self, qn, fmt):
+        for codec in fmt.get('codec') or []:
+            if codec.get('current_qn') != qn:
+                continue
+            for url_info in codec['url_info']:
+                yield {
+                    'url': f'{url_info["host"]}{codec["base_url"]}{url_info["extra"]}',
+                    'ext': fmt.get('format_name'),
+                    'vcodec': codec.get('codec_name'),
+                    'quality': self._quality(qn),
+                    **self._FORMATS[qn],
+                }
+
+    def _real_extract(self, url):
+        room_id = self._match_id(url)
+        room_data = self._call_api('room/v1/Room/get_info', room_id, {'id': room_id})
+        if room_data.get('live_status') == 0:
+            raise ExtractorError('Streamer is not live', expected=True)
+
+        formats = []
+        for qn in self._FORMATS.keys():
+            stream_data = self._call_api('xlive/web-room/v2/index/getRoomPlayInfo', room_id, {
+                'room_id': room_id,
+                'qn': qn,
+                'codec': '0,1',
+                'format': '0,2',
+                'mask': '0',
+                'no_playurl': '0',
+                'platform': 'web',
+                'protocol': '0,1',
+            })
+            for fmt in traverse_obj(stream_data, ('playurl_info', 'playurl', 'stream', ..., 'format', ...)) or []:
+                formats.extend(self._parse_formats(qn, fmt))
+        self._sort_formats(formats)
+
+        return {
+            'id': room_id,
+            'title': room_data.get('title'),
+            'description': room_data.get('description'),
+            'thumbnail': room_data.get('user_cover'),
+            'timestamp': stream_data.get('live_time'),
+            'formats': formats,
+            'http_headers': {
+                'Referer': url,
+            },
+        }

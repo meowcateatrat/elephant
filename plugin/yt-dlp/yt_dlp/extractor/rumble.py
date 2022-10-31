@@ -1,6 +1,3 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import itertools
 import re
 
@@ -18,6 +15,7 @@ from ..utils import (
 
 class RumbleEmbedIE(InfoExtractor):
     _VALID_URL = r'https?://(?:www\.)?rumble\.com/embed/(?:[0-9a-z]+\.)?(?P<id>[0-9a-z]+)'
+    _EMBED_REGEX = [fr'(?:<(?:script|iframe)[^>]+\bsrc=|["\']embedUrl["\']\s*:\s*)["\'](?P<url>{_VALID_URL})']
     _TESTS = [{
         'url': 'https://rumble.com/embed/v5pv5f',
         'md5': '36a18a049856720189f30977ccbb2c34',
@@ -27,6 +25,11 @@ class RumbleEmbedIE(InfoExtractor):
             'title': 'WMAR 2 News Latest Headlines | October 20, 6pm',
             'timestamp': 1571611968,
             'upload_date': '20191020',
+            'channel_url': 'https://rumble.com/c/WMAR',
+            'channel': 'WMAR',
+            'thumbnail': 'https://sp.rmbl.ws/s8/1/5/M/z/1/5Mz1a.OvCc-small-WMAR-2-News-Latest-Headline.jpg',
+            'duration': 234,
+            'uploader': 'WMAR',
         }
     }, {
         'url': 'https://rumble.com/embed/vslb7v',
@@ -41,19 +44,20 @@ class RumbleEmbedIE(InfoExtractor):
             'channel': 'CTNews',
             'thumbnail': 'https://sp.rmbl.ws/s8/6/7/i/9/h/7i9hd.OvCc.jpg',
             'duration': 901,
+            'uploader': 'CTNews',
         }
     }, {
         'url': 'https://rumble.com/embed/ufe9n.v5pv5f',
         'only_matching': True,
     }]
 
-    @staticmethod
-    def _extract_urls(webpage):
-        return [
-            mobj.group('url')
-            for mobj in re.finditer(
-                r'(?:<(?:script|iframe)[^>]+\bsrc=|["\']embedUrl["\']\s*:\s*)["\'](?P<url>%s)' % RumbleEmbedIE._VALID_URL,
-                webpage)]
+    @classmethod
+    def _extract_embed_urls(cls, url, webpage):
+        embeds = tuple(super()._extract_embed_urls(url, webpage))
+        if embeds:
+            return embeds
+        return [f'https://rumble.com/embed/{mobj.group("id")}' for mobj in re.finditer(
+            r'<script>\s*Rumble\(\s*"play"\s*,\s*{\s*[\'"]video[\'"]\s*:\s*[\'"](?P<id>[0-9a-z]+)[\'"]', webpage)]
 
     def _real_extract(self, url):
         video_id = self._match_id(url)
@@ -80,17 +84,26 @@ class RumbleEmbedIE(InfoExtractor):
                     formats.append(f)
         self._sort_formats(formats)
 
+        subtitles = {
+            lang: [{
+                'url': sub_info['path'],
+                'name': sub_info.get('language') or '',
+            }] for lang, sub_info in (video.get('cc') or {}).items() if sub_info.get('path')
+        }
+
         author = video.get('author') or {}
 
         return {
             'id': video_id,
             'title': title,
             'formats': formats,
+            'subtitles': subtitles,
             'thumbnail': video.get('i'),
             'timestamp': parse_iso8601(video.get('pubDate')),
             'channel': author.get('name'),
             'channel_url': author.get('url'),
             'duration': int_or_none(video.get('duration')),
+            'uploader': author.get('name'),
         }
 
 

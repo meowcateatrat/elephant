@@ -1,9 +1,9 @@
-from hashlib import sha256
+import hashlib
 import json
 import re
+import urllib.parse
 
 from .ffmpeg import FFmpegPostProcessor
-from ..compat import compat_urllib_parse_urlencode
 
 
 class SponsorBlockPP(FFmpegPostProcessor):
@@ -38,7 +38,7 @@ class SponsorBlockPP(FFmpegPostProcessor):
             return [], info
 
         self.to_screen('Fetching SponsorBlock segments')
-        info['sponsorblock_chapters'] = self._get_sponsor_chapters(info, info['duration'])
+        info['sponsorblock_chapters'] = self._get_sponsor_chapters(info, info.get('duration'))
         return [], info
 
     def _get_sponsor_chapters(self, info, duration):
@@ -84,9 +84,9 @@ class SponsorBlockPP(FFmpegPostProcessor):
         return sponsor_chapters
 
     def _get_sponsor_segments(self, video_id, service):
-        hash = sha256(video_id.encode('ascii')).hexdigest()
+        hash = hashlib.sha256(video_id.encode('ascii')).hexdigest()
         # SponsorBlock API recommends using first 4 hash characters.
-        url = f'{self._API_URL}/api/skipSegments/{hash[:4]}?' + compat_urllib_parse_urlencode({
+        url = f'{self._API_URL}/api/skipSegments/{hash[:4]}?' + urllib.parse.urlencode({
             'service': service,
             'categories': json.dumps(self._categories),
             'actionTypes': json.dumps(['skip', 'poi'])

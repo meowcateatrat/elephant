@@ -1,4 +1,3 @@
-# coding: utf-8
 import re
 
 from .common import InfoExtractor
@@ -39,7 +38,9 @@ class HiDiveIE(InfoExtractor):
         webpage = self._download_webpage(self._LOGIN_URL, None)
         form = self._search_regex(
             r'(?s)<form[^>]+action="/account/login"[^>]*>(.+?)</form>',
-            webpage, 'login form')
+            webpage, 'login form', default=None)
+        if not form:  # logged in
+            return
         data = self._hidden_inputs(form)
         data.update({
             'Email': username,
