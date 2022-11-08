@@ -5,24 +5,23 @@ import time
 from .common import InfoExtractor
 from ..compat import compat_str
 from ..utils import (
-    KNOWN_EXTENSIONS,
     ExtractorError,
     float_or_none,
     int_or_none,
+    KNOWN_EXTENSIONS,
     parse_filesize,
     str_or_none,
     try_get,
+    update_url_query,
     unified_strdate,
     unified_timestamp,
-    update_url_query,
     url_or_none,
     urljoin,
 )
 
 
 class BandcampIE(InfoExtractor):
-    _VALID_URL = r'https?://(?P<uploader>[^/]+)\.bandcamp\.com/track/(?P<id>[^/?#&]+)'
-    _EMBED_REGEX = [r'<meta property="og:url"[^>]*?content="(?P<url>.*?bandcamp\.com.*?)"']
+    _VALID_URL = r'https?://[^/]+\.bandcamp\.com/track/(?P<id>[^/?#&]+)'
     _TESTS = [{
         'url': 'http://youtube-dl.bandcamp.com/track/youtube-dl-test-song',
         'md5': 'c557841d5e50261777a6585648adf439',
@@ -85,7 +84,7 @@ class BandcampIE(InfoExtractor):
             attr + ' data', group=2), video_id, fatal=fatal)
 
     def _real_extract(self, url):
-        title, uploader = self._match_valid_url(url).group('id', 'uploader')
+        title = self._match_id(url)
         webpage = self._download_webpage(url, title)
         tralbum = self._extract_data_attr(webpage, title)
         thumbnail = self._og_search_thumbnail(webpage)
@@ -197,8 +196,6 @@ class BandcampIE(InfoExtractor):
             'title': title,
             'thumbnail': thumbnail,
             'uploader': artist,
-            'uploader_id': uploader,
-            'uploader_url': f'https://{uploader}.bandcamp.com',
             'timestamp': timestamp,
             'release_timestamp': unified_timestamp(tralbum.get('album_release_date')),
             'duration': duration,

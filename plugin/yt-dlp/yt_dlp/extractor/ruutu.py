@@ -135,7 +135,7 @@ class RuutuIE(InfoExtractor):
     _API_BASE = 'https://gatling.nelonenmedia.fi'
 
     @classmethod
-    def _extract_embed_urls(cls, url, webpage):
+    def _extract_urls(cls, webpage):
         # nelonen.fi
         settings = try_call(
             lambda: json.loads(re.search(

@@ -4,6 +4,7 @@ import importlib
 import sys
 import types
 
+
 _NO_ATTRIBUTE = object()
 
 _Package = collections.namedtuple('Package', ('name', 'version'))
@@ -30,9 +31,9 @@ def _is_package(module):
     return True
 
 
-def passthrough_module(parent, child, allowed_attributes=None, *, callback=lambda _: None):
+def passthrough_module(parent, child, *, callback=lambda _: None):
     parent_module = importlib.import_module(parent)
-    child_module = None  # Import child module only as needed
+    child_module = importlib.import_module(child, parent)
 
     class PassthroughModule(types.ModuleType):
         def __getattr__(self, attr):
@@ -40,30 +41,19 @@ def passthrough_module(parent, child, allowed_attributes=None, *, callback=lambd
                 with contextlib.suppress(ImportError):
                     return importlib.import_module(f'.{attr}', parent)
 
-            ret = self.__from_child(attr)
-            if ret is _NO_ATTRIBUTE:
-                raise AttributeError(f'module {parent} has no attribute {attr}')
-            callback(attr)
-            return ret
-
-        def __from_child(self, attr):
-            if allowed_attributes is None:
-                if attr.startswith('__') and attr.endswith('__'):
-                    return _NO_ATTRIBUTE
-            elif attr not in allowed_attributes:
-                return _NO_ATTRIBUTE
-
-            nonlocal child_module
-            child_module = child_module or importlib.import_module(child, parent)
-
+            ret = _NO_ATTRIBUTE
             with contextlib.suppress(AttributeError):
-                return getattr(child_module, attr)
+                ret = getattr(child_module, attr)
 
             if _is_package(child_module):
                 with contextlib.suppress(ImportError):
-                    return importlib.import_module(f'.{attr}', child)
+                    ret = importlib.import_module(f'.{attr}', child)
 
-            return _NO_ATTRIBUTE
+            if ret is _NO_ATTRIBUTE:
+                raise AttributeError(f'module {parent} has no attribute {attr}')
+
+            callback(attr)
+            return ret
 
     # Python 3.6 does not have module level __getattr__
     # https://peps.python.org/pep-0562/

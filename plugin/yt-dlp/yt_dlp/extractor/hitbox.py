@@ -1,13 +1,13 @@
 import re
 
 from .common import InfoExtractor
-from ..compat import compat_str
 from ..utils import (
     clean_html,
-    determine_ext,
+    parse_iso8601,
     float_or_none,
     int_or_none,
-    parse_iso8601,
+    compat_str,
+    determine_ext,
 )
 
 

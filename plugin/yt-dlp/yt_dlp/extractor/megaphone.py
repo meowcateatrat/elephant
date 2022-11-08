@@ -1,3 +1,5 @@
+import re
+
 from .common import InfoExtractor
 from ..utils import js_to_json
 
@@ -6,7 +8,6 @@ class MegaphoneIE(InfoExtractor):
     IE_NAME = 'megaphone.fm'
     IE_DESC = 'megaphone.fm embedded players'
     _VALID_URL = r'https://player\.megaphone\.fm/(?P<id>[A-Z0-9]+)'
-    _EMBED_REGEX = [rf'<iframe[^>]*?\ssrc=["\'](?P<url>{_VALID_URL})']
     _TEST = {
         'url': 'https://player.megaphone.fm/GLT9749789991?"',
         'md5': '4816a0de523eb3e972dc0dda2c191f96',
@@ -44,3 +45,8 @@ class MegaphoneIE(InfoExtractor):
             'duration': episode_data['duration'],
             'formats': formats,
         }
+
+    @classmethod
+    def _extract_urls(cls, webpage):
+        return [m[0] for m in re.findall(
+            r'<iframe[^>]*?\ssrc=["\'](%s)' % cls._VALID_URL, webpage)]

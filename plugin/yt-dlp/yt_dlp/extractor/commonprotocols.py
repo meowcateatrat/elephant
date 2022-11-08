@@ -1,6 +1,5 @@
-import urllib.parse
-
 from .common import InfoExtractor
+from ..compat import compat_urlparse
 
 
 class RtmpIE(InfoExtractor):
@@ -24,7 +23,7 @@ class RtmpIE(InfoExtractor):
             'formats': [{
                 'url': url,
                 'ext': 'flv',
-                'format_id': urllib.parse.urlparse(url).scheme,
+                'format_id': compat_urlparse.urlparse(url).scheme,
             }],
         }
 

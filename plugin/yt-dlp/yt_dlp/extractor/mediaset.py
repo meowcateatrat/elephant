@@ -20,10 +20,10 @@ class MediasetIE(ThePlatformBaseIE):
                     (?:
                         mediaset:|
                         https?://
-                            (?:\w+\.)+mediaset\.it/
+                            (?:(?:www|static3)\.)?mediasetplay\.mediaset\.it/
                             (?:
                                 (?:video|on-demand|movie)/(?:[^/]+/)+[^/]+_|
-                                player/(?:v\d+/)?index\.html\?.*?\bprogramGuid=
+                                player/index\.html\?.*?\bprogramGuid=
                             )
                     )(?P<id>[0-9A-Z]{16,})
                     '''
@@ -142,10 +142,6 @@ class MediasetIE(ThePlatformBaseIE):
         'url': 'https://static3.mediasetplay.mediaset.it/player/index.html?appKey=5ad3966b1de1c4000d5cec48&programGuid=FAFU000000665104&id=665104',
         'only_matching': True,
     }, {
-        # embedUrl (from https://www.wittytv.it/amici/est-ce-que-tu-maimes-gabriele-5-dicembre-copia/)
-        'url': 'https://static3.mediasetplay.mediaset.it/player/v2/index.html?partnerId=wittytv&configId=&programGuid=FD00000000153323&autoplay=true&purl=http://www.wittytv.it/amici/est-ce-que-tu-maimes-gabriele-5-dicembre-copia/',
-        'only_matching': True,
-    }, {
         'url': 'mediaset:FAFU000000665924',
         'only_matching': True,
     }, {
@@ -163,36 +159,36 @@ class MediasetIE(ThePlatformBaseIE):
     }, {
         'url': 'https://www.mediasetplay.mediaset.it/movie/herculeslaleggendahainizio/hercules-la-leggenda-ha-inizio_F305927501000102',
         'only_matching': True,
-    }, {
-        'url': 'https://mediasetinfinity.mediaset.it/video/braveandbeautiful/episodio-113_F310948005000402',
-        'only_matching': True,
-    }, {
-        'url': 'https://static3.mediasetplay.mediaset.it/player/v2/index.html?partnerId=wittytv&configId=&programGuid=FD00000000153323',
-        'only_matching': True,
     }]
 
-    def _extract_from_webpage(self, url, webpage):
+    @staticmethod
+    def _extract_urls(ie, webpage):
+        def _qs(url):
+            return parse_qs(url)
+
         def _program_guid(qs):
             return qs.get('programGuid', [None])[0]
 
+        entries = []
         for mobj in re.finditer(
                 r'<iframe\b[^>]+\bsrc=(["\'])(?P<url>(?:https?:)?//(?:www\.)?video\.mediaset\.it/player/playerIFrame(?:Twitter)?\.shtml.*?)\1',
                 webpage):
             embed_url = mobj.group('url')
-            embed_qs = parse_qs(embed_url)
+            embed_qs = _qs(embed_url)
             program_guid = _program_guid(embed_qs)
             if program_guid:
-                yield self.url_result(embed_url)
+                entries.append(embed_url)
                 continue
-
             video_id = embed_qs.get('id', [None])[0]
             if not video_id:
                 continue
-            urlh = self._request_webpage(embed_url, video_id, note='Following embed URL redirect')
+            urlh = ie._request_webpage(
+                embed_url, video_id, note='Following embed URL redirect')
             embed_url = urlh.geturl()
-            program_guid = _program_guid(parse_qs(embed_url))
+            program_guid = _program_guid(_qs(embed_url))
             if program_guid:
-                yield self.url_result(embed_url)
+                entries.append(embed_url)
+        return entries
 
     def _parse_smil_formats(self, smil, smil_url, video_id, namespace=None, f4m_params=None, transform_rtmp_url=None):
         for video in smil.findall(self._xpath_ns('.//video', namespace)):
@@ -290,7 +286,7 @@ class MediasetShowIE(MediasetIE):
     _VALID_URL = r'''(?x)
                     (?:
                         https?://
-                            (\w+\.)+mediaset\.it/
+                            (?:(?:www|static3)\.)?mediasetplay\.mediaset\.it/
                             (?:
                                 (?:fiction|programmi-tv|serie-tv|kids)/(?:.+?/)?
                                     (?:[a-z-]+)_SE(?P<id>\d{12})

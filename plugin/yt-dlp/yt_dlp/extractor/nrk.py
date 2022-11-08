@@ -3,17 +3,18 @@ import random
 import re
 
 from .common import InfoExtractor
-from ..compat import compat_HTTPError, compat_str
+from ..compat import compat_str
 from ..utils import (
-    ExtractorError,
+    compat_HTTPError,
     determine_ext,
+    ExtractorError,
     int_or_none,
     parse_duration,
     parse_iso8601,
     str_or_none,
     try_get,
-    url_or_none,
     urljoin,
+    url_or_none,
 )
 
 

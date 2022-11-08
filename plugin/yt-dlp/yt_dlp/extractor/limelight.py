@@ -17,7 +17,7 @@ class LimelightBaseIE(InfoExtractor):
     _PLAYLIST_SERVICE_URL = 'http://production-ps.lvp.llnw.net/r/PlaylistService/%s/%s/%s'
 
     @classmethod
-    def _extract_embed_urls(cls, url, webpage):
+    def _extract_urls(cls, webpage, source_url):
         lm = {
             'Media': 'media',
             'Channel': 'channel',
@@ -25,7 +25,7 @@ class LimelightBaseIE(InfoExtractor):
         }
 
         def smuggle(url):
-            return smuggle_url(url, {'source_url': url})
+            return smuggle_url(url, {'source_url': source_url})
 
         entries = []
         for kind, video_id in re.findall(

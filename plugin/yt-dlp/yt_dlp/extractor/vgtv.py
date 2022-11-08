@@ -14,7 +14,6 @@ class VGTVIE(XstreamIE):
     _GEO_BYPASS = False
 
     _HOST_TO_APPNAME = {
-        'tv.vg.no': 'vgtv',
         'vgtv.no': 'vgtv',
         'bt.no/tv': 'bttv',
         'aftenbladet.no/tv': 'satv',
@@ -126,10 +125,6 @@ class VGTVIE(XstreamIE):
                 # m3u8 download
                 'skip_download': True,
             },
-        },
-        {
-            'url': 'https://tv.vg.no/video/241779/politiets-ekstremkjoering',
-            'only_matching': True,
         },
         {
             'url': 'http://www.bt.no/tv/#!/video/100250/norling-dette-er-forskjellen-paa-1-divisjon-og-eliteserien',

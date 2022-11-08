@@ -6,6 +6,7 @@ from ..compat import compat_urlparse, compat_b64decode
 from ..utils import (
     ExtractorError,
     int_or_none,
+    js_to_json,
     str_or_none,
     try_get,
     unescapeHTML,
@@ -54,7 +55,11 @@ class HuyaLiveIE(InfoExtractor):
     def _real_extract(self, url):
         video_id = self._match_id(url)
         webpage = self._download_webpage(url, video_id=video_id)
-        stream_data = self._search_json(r'stream:\s', webpage, 'stream', video_id=video_id, default=None)
+        json_stream = self._search_regex(r'"stream":\s+"([a-zA-Z0-9+=/]+)"', webpage, 'stream', default=None)
+        if not json_stream:
+            raise ExtractorError('Video is offline', expected=True)
+        stream_data = self._parse_json(compat_b64decode(json_stream).decode(), video_id=video_id,
+                                       transform_source=js_to_json)
         room_info = try_get(stream_data, lambda x: x['data'][0]['gameLiveInfo'])
         if not room_info:
             raise ExtractorError('Can not extract the room info', expected=True)
@@ -62,8 +67,6 @@ class HuyaLiveIE(InfoExtractor):
         screen_type = room_info.get('screenType')
         live_source_type = room_info.get('liveSourceType')
         stream_info_list = stream_data['data'][0]['gameStreamInfoList']
-        if not stream_info_list:
-            raise ExtractorError('Video is offline', expected=True)
         formats = []
         for stream_info in stream_info_list:
             stream_url = stream_info.get('sFlvUrl')

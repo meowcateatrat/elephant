@@ -69,8 +69,8 @@ class MedialaanIE(InfoExtractor):
         'only_matching': True,
     }]
 
-    @classmethod
-    def _extract_embed_urls(cls, url, webpage):
+    @staticmethod
+    def _extract_urls(webpage):
         entries = []
         for element in re.findall(r'(<div[^>]+data-mychannels-type="video"[^>]*>)', webpage):
             mychannels_id = extract_attributes(element).get('data-mychannels-id')

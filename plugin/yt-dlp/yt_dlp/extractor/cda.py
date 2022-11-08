@@ -1,9 +1,13 @@
 import codecs
-import json
 import re
+import json
 
 from .common import InfoExtractor
-from ..compat import compat_ord, compat_urllib_parse_unquote
+from ..compat import (
+    compat_chr,
+    compat_ord,
+    compat_urllib_parse_unquote,
+)
 from ..utils import (
     ExtractorError,
     float_or_none,
@@ -12,8 +16,8 @@ from ..utils import (
     multipart_encode,
     parse_duration,
     random_birthday,
-    try_get,
     urljoin,
+    try_get,
 )
 
 
@@ -140,7 +144,7 @@ class CDAIE(InfoExtractor):
             b = []
             for c in a:
                 f = compat_ord(c)
-                b.append(chr(33 + (f + 14) % 94) if 33 <= f <= 126 else chr(f))
+                b.append(compat_chr(33 + (f + 14) % 94) if 33 <= f <= 126 else compat_chr(f))
             a = ''.join(b)
             a = a.replace('.cda.mp4', '')
             for p in ('.2cda.pl', '.3cda.pl'):

@@ -31,9 +31,7 @@ class TelegraafIE(InfoExtractor):
         article_id = self._match_id(url)
 
         video_id = self._download_json(
-            'https://app.telegraaf.nl/graphql', article_id,
-            headers={'User-Agent': 'De Telegraaf/6.8.11 (Android 11; en_US)'},
-            query={
+            'https://www.telegraaf.nl/graphql', article_id, query={
                 'query': '''{
   article(uid: %s) {
     videos {

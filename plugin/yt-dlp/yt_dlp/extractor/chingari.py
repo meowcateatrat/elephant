@@ -1,11 +1,11 @@
 import itertools
 import json
-import urllib.parse
 
 from .common import InfoExtractor
+from ..compat import compat_urllib_parse_unquote_plus
 from ..utils import (
-    ExtractorError,
     clean_html,
+    ExtractorError,
     int_or_none,
     str_to_int,
     url_or_none,
@@ -47,8 +47,8 @@ class ChingariBaseIE(InfoExtractor):
             'id': id,
             'extractor_key': ChingariIE.ie_key(),
             'extractor': 'Chingari',
-            'title': urllib.parse.unquote_plus(clean_html(post_data.get('caption'))),
-            'description': urllib.parse.unquote_plus(clean_html(post_data.get('caption'))),
+            'title': compat_urllib_parse_unquote_plus(clean_html(post_data.get('caption'))),
+            'description': compat_urllib_parse_unquote_plus(clean_html(post_data.get('caption'))),
             'duration': media_data.get('duration'),
             'thumbnail': url_or_none(thumbnail),
             'like_count': post_data.get('likeCount'),

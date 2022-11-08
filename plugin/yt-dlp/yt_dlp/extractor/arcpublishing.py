@@ -70,8 +70,8 @@ class ArcPublishingIE(InfoExtractor):
         ], 'video-api-cdn.%s.arcpublishing.com/api'),
     ]
 
-    @classmethod
-    def _extract_embed_urls(cls, url, webpage):
+    @staticmethod
+    def _extract_urls(webpage):
         entries = []
         # https://arcpublishing.atlassian.net/wiki/spaces/POWA/overview
         for powa_el in re.findall(r'(<div[^>]+class="[^"]*\bpowa\b[^"]*"[^>]+data-uuid="%s"[^>]*>)' % ArcPublishingIE._UUID_REGEX, webpage):

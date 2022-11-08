@@ -1,3 +1,5 @@
+import re
+
 from .common import InfoExtractor
 from ..compat import compat_str
 from ..utils import (
@@ -10,7 +12,6 @@ from ..utils import (
 
 class VzaarIE(InfoExtractor):
     _VALID_URL = r'https?://(?:(?:www|view)\.)?vzaar\.com/(?:videos/)?(?P<id>\d+)'
-    _EMBED_REGEX = [r'<iframe[^>]+src=["\'](?P<url>(?:https?:)?//(?:view\.vzaar\.com)/[0-9]+)']
     _TESTS = [{
         # HTTP and HLS
         'url': 'https://vzaar.com/videos/1152805',
@@ -45,6 +46,12 @@ class VzaarIE(InfoExtractor):
         'url': 'https://view.vzaar.com/20313539/download',
         'only_matching': True,
     }]
+
+    @staticmethod
+    def _extract_urls(webpage):
+        return re.findall(
+            r'<iframe[^>]+src=["\']((?:https?:)?//(?:view\.vzaar\.com)/[0-9]+)',
+            webpage)
 
     def _real_extract(self, url):
         video_id = self._match_id(url)

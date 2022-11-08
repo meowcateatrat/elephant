@@ -1,6 +1,4 @@
 import json
-import random
-import string
 
 from .common import InfoExtractor
 from ..compat import compat_str
@@ -23,25 +21,25 @@ class Zee5IE(InfoExtractor):
                         https?://(?:www\.)?zee5\.com/(?:[^#?]+/)?
                         (?:
                             (?:tv-shows|kids|web-series|zee5originals)(?:/[^#/?]+){3}
-                            |(?:movies|kids|videos)/(?!kids-shows)[^#/?]+
+                            |movies/[^#/?]+
                         )/(?P<display_id>[^#/?]+)/
                      )
                      (?P<id>[^#/?]+)/?(?:$|[?#])
                      '''
     _TESTS = [{
-        'url': 'https://www.zee5.com/movies/details/adavari-matalaku-ardhale-verule/0-0-movie_1143162669',
+        'url': 'https://www.zee5.com/movies/details/krishna-the-birth/0-0-63098',
         'info_dict': {
-            'id': '0-0-movie_1143162669',
+            'id': '0-0-63098',
             'ext': 'mp4',
-            'display_id': 'adavari-matalaku-ardhale-verule',
-            'title': 'Adavari Matalaku Ardhale Verule',
-            'duration': 9360,
+            'display_id': 'krishna-the-birth',
+            'title': 'Krishna - The Birth',
+            'duration': 4368,
             'description': compat_str,
-            'alt_title': 'Adavari Matalaku Ardhale Verule',
+            'alt_title': 'Krishna - The Birth',
             'uploader': 'Zee Entertainment Enterprises Ltd',
-            'release_date': '20070427',
-            'upload_date': '20070427',
-            'timestamp': 1177632000,
+            'release_date': '20060101',
+            'upload_date': '20060101',
+            'timestamp': 1136073600,
             'thumbnail': r're:^https?://.*\.jpg$',
             'episode_number': 0,
             'episode': 'Episode 0',
@@ -84,12 +82,9 @@ class Zee5IE(InfoExtractor):
     }, {
         'url': 'https://www.zee5.com/web-series/details/mithya/0-6-4z587408/maine-dekhi-hai-uski-mrityu/0-1-6z587412',
         'only_matching': True
-    }, {
-        'url': 'https://www.zee5.com/kids/kids-movies/maya-bommalu/0-0-movie_1040370005',
-        'only_matching': True
     }]
     _DETAIL_API_URL = 'https://spapi.zee5.com/singlePlayback/getDetails/secure?content_id={}&device_id={}&platform_name=desktop_web&country=IN&check_parental_control=false'
-    _DEVICE_ID = ''.join(random.choices(string.ascii_letters + string.digits, k=20)).ljust(32, '0')
+    _DEVICE_ID = 'TszZPYPuY9Pq2cJizV0U000000000000'
     _USER_TOKEN = None
     _LOGIN_HINT = 'Use "--username <mobile_number>" to login using otp or "--username token" and "--password <user_token>" to login using user token.'
     _NETRC_MACHINE = 'zee5'
@@ -179,7 +174,7 @@ class Zee5SeriesIE(InfoExtractor):
                      (?:
                         zee5:series:|
                         https?://(?:www\.)?zee5\.com/(?:[^#?]+/)?
-                        (?:tv-shows|web-series|kids|zee5originals)/(?!kids-movies)(?:[^#/?]+/){2}
+                        (?:tv-shows|web-series|kids|zee5originals)(?:/[^#/?]+){2}/
                      )
                      (?P<id>[^#/?]+)(?:/episodes)?/?(?:$|[?#])
                      '''

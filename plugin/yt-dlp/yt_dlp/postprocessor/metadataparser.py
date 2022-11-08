@@ -1,7 +1,7 @@
 import re
 
 from .common import PostProcessor
-from ..utils import Namespace, filter_dict
+from ..utils import Namespace
 
 
 class MetadataParserPP(PostProcessor):
@@ -68,9 +68,9 @@ class MetadataParserPP(PostProcessor):
             if match is None:
                 self.to_screen(f'Could not interpret {inp!r} as {out!r}')
                 return
-            for attribute, value in filter_dict(match.groupdict()).items():
+            for attribute, value in match.groupdict().items():
                 info[attribute] = value
-                self.to_screen(f'Parsed {attribute} from {template!r}: {value!r}')
+                self.to_screen('Parsed %s from %r: %r' % (attribute, template, value if value is not None else 'NA'))
 
         template = self.field_to_template(inp)
         out_re = re.compile(self.format_to_regex(out))

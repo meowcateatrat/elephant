@@ -7,7 +7,6 @@ from ..utils import (
     js_to_json,
     sanitized_Request,
     urlencode_postdata,
-    traverse_obj,
 )
 
 
@@ -70,17 +69,16 @@ class TubiTvIE(InfoExtractor):
     def _real_extract(self, url):
         video_id = self._match_id(url)
         video_data = self._download_json(
-            'https://tubitv.com/oz/videos/%s/content?video_resources=dash&video_resources=hlsv3&video_resources=hlsv6' % video_id, video_id)
+            'http://tubitv.com/oz/videos/%s/content' % video_id, video_id)
         title = video_data['title']
 
         formats = []
-
-        for resource in video_data['video_resources']:
-            if resource['type'] in ('dash', ):
-                formats += self._extract_mpd_formats(resource['manifest']['url'], video_id, mpd_id=resource['type'], fatal=False)
-            elif resource['type'] in ('hlsv3', 'hlsv6'):
-                formats += self._extract_m3u8_formats(resource['manifest']['url'], video_id, 'mp4', m3u8_id=resource['type'], fatal=False)
-
+        url = video_data['url']
+        # URL can be sometimes empty. Does this only happen when there is DRM?
+        if url:
+            formats = self._extract_m3u8_formats(
+                self._proto_relative_url(url),
+                video_id, 'mp4', 'm3u8_native')
         self._sort_formats(formats)
 
         thumbnails = []
@@ -137,8 +135,6 @@ class TubiTvShowIE(InfoExtractor):
             show_webpage, 'data'), show_name, transform_source=js_to_json)['video']
 
         for episode_id in show_json['fullContentById'].keys():
-            if traverse_obj(show_json, ('byId', episode_id, 'type')) == 's':
-                continue
             yield self.url_result(
                 'tubitv:%s' % episode_id,
                 ie=TubiTvIE.ie_key(), video_id=episode_id)

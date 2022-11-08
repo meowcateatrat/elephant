@@ -139,8 +139,7 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
             if not success:
                 success = True
                 atomicparsley = next((
-                    # libatomicparsley.so : See https://github.com/xibr/ytdlp-lazy/issues/1
-                    x for x in ['AtomicParsley', 'atomicparsley', 'libatomicparsley.so']
+                    x for x in ['AtomicParsley', 'atomicparsley']
                     if check_executable(x, ['-v'])), None)
                 if atomicparsley is None:
                     self.to_screen('Neither mutagen nor AtomicParsley was found. Falling back to ffmpeg')
@@ -158,12 +157,14 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
 
                     self._report_run('atomicparsley', filename)
                     self.write_debug('AtomicParsley command line: %s' % shell_quote(cmd))
-                    stdout, stderr, returncode = Popen.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    if returncode:
-                        self.report_warning(f'Unable to embed thumbnails using AtomicParsley; {stderr.strip()}')
+                    p = Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    stdout, stderr = p.communicate_or_kill()
+                    if p.returncode != 0:
+                        msg = stderr.decode('utf-8', 'replace').strip()
+                        self.report_warning(f'Unable to embed thumbnails using AtomicParsley; {msg}')
                     # for formats that don't support thumbnails (like 3gp) AtomicParsley
                     # won't create to the temporary file
-                    if 'No changes' in stdout:
+                    if b'No changes' in stdout:
                         self.report_warning('The file format doesn\'t support embedding a thumbnail')
                         success = False
 

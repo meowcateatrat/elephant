@@ -3,6 +3,7 @@ import itertools
 from .common import InfoExtractor
 from ..compat import (
     compat_b64decode,
+    compat_chr,
     compat_ord,
     compat_str,
     compat_urllib_parse_unquote,
@@ -71,7 +72,7 @@ class MixcloudIE(MixcloudBaseIE):
     def _decrypt_xor_cipher(key, ciphertext):
         """Encrypt/Decrypt XOR cipher. Both ways are possible because it's XOR."""
         return ''.join([
-            chr(compat_ord(ch) ^ compat_ord(k))
+            compat_chr(compat_ord(ch) ^ compat_ord(k))
             for ch, k in zip(ciphertext, itertools.cycle(key))])
 
     def _real_extract(self, url):
@@ -159,7 +160,6 @@ class MixcloudIE(MixcloudBaseIE):
                 formats.append({
                     'format_id': 'http',
                     'url': decrypted,
-                    'vcodec': 'none',
                     'downloader_options': {
                         # Mixcloud starts throttling at >~5M
                         'http_chunk_size': 5242880,

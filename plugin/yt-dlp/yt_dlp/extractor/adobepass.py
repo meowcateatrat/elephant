@@ -1,4 +1,3 @@
-import getpass
 import json
 import re
 import time
@@ -6,14 +5,18 @@ import urllib.error
 import xml.etree.ElementTree as etree
 
 from .common import InfoExtractor
-from ..compat import compat_urlparse
-from ..utils import (
-    NO_DEFAULT,
-    ExtractorError,
-    unescapeHTML,
-    unified_timestamp,
-    urlencode_postdata,
+from ..compat import (
+    compat_urlparse,
+    compat_getpass
 )
+from ..utils import (
+    unescapeHTML,
+    urlencode_postdata,
+    unified_timestamp,
+    ExtractorError,
+    NO_DEFAULT,
+)
+
 
 MSO_INFO = {
     'DTV': {
@@ -1344,11 +1347,6 @@ MSO_INFO = {
         'username_field': 'username',
         'password_field': 'password',
     },
-    'AlticeOne': {
-        'name': 'Optimum TV',
-        'username_field': 'j_username',
-        'password_field': 'j_password',
-    },
 }
 
 
@@ -1433,7 +1431,7 @@ class AdobePassIE(InfoExtractor):
         guid = xml_text(resource, 'guid') if '<' in resource else resource
         count = 0
         while count < 2:
-            requestor_info = self.cache.load(self._MVPD_CACHE, requestor_id) or {}
+            requestor_info = self._downloader.cache.load(self._MVPD_CACHE, requestor_id) or {}
             authn_token = requestor_info.get('authn_token')
             if authn_token and is_expired(authn_token, 'simpleTokenExpires'):
                 authn_token = None
@@ -1508,7 +1506,7 @@ class AdobePassIE(InfoExtractor):
                             'send_confirm_link': False,
                             'send_token': True
                         }))
-                    philo_code = getpass.getpass('Type auth code you have received [Return]: ')
+                    philo_code = compat_getpass('Type auth code you have received [Return]: ')
                     self._download_webpage(
                         'https://idp.philo.com/auth/update/login_code', video_id, 'Submitting token', data=urlencode_postdata({
                             'token': philo_code
@@ -1710,7 +1708,7 @@ class AdobePassIE(InfoExtractor):
                         mso_info.get('username_field', 'username'): username,
                         mso_info.get('password_field', 'password'): password
                     }
-                    if mso_id in ('Cablevision', 'AlticeOne'):
+                    if mso_id == 'Cablevision':
                         form_data['_eventId_proceed'] = ''
                     mvpd_confirm_page_res = post_form(provider_login_page_res, 'Logging in', form_data)
                     if mso_id != 'Rogers':
@@ -1728,12 +1726,12 @@ class AdobePassIE(InfoExtractor):
                         raise_mvpd_required()
                     raise
                 if '<pendingLogout' in session:
-                    self.cache.store(self._MVPD_CACHE, requestor_id, {})
+                    self._downloader.cache.store(self._MVPD_CACHE, requestor_id, {})
                     count += 1
                     continue
                 authn_token = unescapeHTML(xml_text(session, 'authnToken'))
                 requestor_info['authn_token'] = authn_token
-                self.cache.store(self._MVPD_CACHE, requestor_id, requestor_info)
+                self._downloader.cache.store(self._MVPD_CACHE, requestor_id, requestor_info)
 
             authz_token = requestor_info.get(guid)
             if authz_token and is_expired(authz_token, 'simpleTokenTTL'):
@@ -1749,14 +1747,14 @@ class AdobePassIE(InfoExtractor):
                         'userMeta': '1',
                     }), headers=mvpd_headers)
                 if '<pendingLogout' in authorize:
-                    self.cache.store(self._MVPD_CACHE, requestor_id, {})
+                    self._downloader.cache.store(self._MVPD_CACHE, requestor_id, {})
                     count += 1
                     continue
                 if '<error' in authorize:
                     raise ExtractorError(xml_text(authorize, 'details'), expected=True)
                 authz_token = unescapeHTML(xml_text(authorize, 'authzToken'))
                 requestor_info[guid] = authz_token
-                self.cache.store(self._MVPD_CACHE, requestor_id, requestor_info)
+                self._downloader.cache.store(self._MVPD_CACHE, requestor_id, requestor_info)
 
             mvpd_headers.update({
                 'ap_19': xml_text(authn_token, 'simpleSamlNameID'),
@@ -1772,7 +1770,7 @@ class AdobePassIE(InfoExtractor):
                     'hashed_guid': 'false',
                 }), headers=mvpd_headers)
             if '<pendingLogout' in short_authorize:
-                self.cache.store(self._MVPD_CACHE, requestor_id, {})
+                self._downloader.cache.store(self._MVPD_CACHE, requestor_id, {})
                 count += 1
                 continue
             return short_authorize
