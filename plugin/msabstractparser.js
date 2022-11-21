@@ -8,7 +8,7 @@ var msAbstractParser = (function()
 
         parse: function (obj, customArgs)
         {
-            console.log("[elephant] parse");
+            console.log("parsing...");
 
             var args = [];
 
@@ -16,14 +16,17 @@ var msAbstractParser = (function()
             if (proxyUrl)
                 args.push("--proxy", proxyUrl);
 
-            args.push("-J", "--flat-playlist", "--no-warnings");
-            args.concat(customArgs);
+            args.push("-J", "--flat-playlist", "--no-warnings", "--compat-options", "no-youtube-unavailable-videos");
+
+            if (customArgs.length)
+                args = args.concat(customArgs);
+
             args.push(obj.url);
 
             return launchPythonScript(obj.requestId, obj.interactive, "yt-dlp/yt_dlp/__main__.py", args)
             .then(function(obj)
             {
-                console.log("[elephant] Python result: ", obj.output);
+                console.log("Python result: ", obj.output);
 
                 return new Promise(function (resolve, reject)
                 {
