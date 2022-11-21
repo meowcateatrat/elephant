@@ -7,6 +7,6 @@ Check [FDM forum](https://www.freedownloadmanager.org/board/viewtopic.php?f=1&t=
 
 # Installation
 1. Clone (download) repository.
-2. Make sure you have 7-Zip installed. 
-3. Launch build/build-windows.bat.
+2. Windows: Make sure you have 7-Zip installed. 
+3. Windows: Launch build/build-windows.bat. Unix: Launch build/build-unix.sh.
 4. Install generated elephant.fda addon into FDM using its menu.
