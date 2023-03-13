@@ -2,7 +2,7 @@
   "uuid": "elephant",
   "name": "Elephant",
   "description": "Provides support for downloading videos from various sites.",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "icon": "icon.svg",
   "mediaParser": true,
   "mediaListParser": true,
@@ -16,5 +16,6 @@
     "msabstractparser.js",
     "msparser.js",
     "msbatchparser.js"
-  ]
+  ],
+  "updateUrl": "https://free-addons.org/FDM/elephant-update.json"
 }
