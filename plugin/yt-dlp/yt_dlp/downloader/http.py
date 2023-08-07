@@ -45,8 +45,8 @@ class HttpFD(FileDownloader):
         ctx.tmpfilename = self.temp_name(filename)
         ctx.stream = None
 
-        # Do not include the Accept-Encoding header
-        headers = {'Youtubedl-no-compression': 'True'}
+        # Disable compression
+        headers = {'Accept-Encoding': 'identity'}
         add_headers = info_dict.get('http_headers')
         if add_headers:
             headers.update(add_headers)
@@ -150,7 +150,8 @@ class HttpFD(FileDownloader):
                     # Content-Range is either not present or invalid. Assuming remote webserver is
                     # trying to send the whole file, resume is not possible, so wiping the local file
                     # and performing entire redownload
-                    self.report_unable_to_resume()
+                    elif range_start > 0:
+                        self.report_unable_to_resume()
                     ctx.resume_len = 0
                     ctx.open_mode = 'wb'
                 ctx.data_len = ctx.content_len = int_or_none(ctx.data.info().get('Content-length', None))
@@ -338,15 +339,15 @@ class HttpFD(FileDownloader):
                 elif speed:
                     ctx.throttle_start = None
 
-            if not is_test and ctx.chunk_size and ctx.content_len is not None and byte_counter < ctx.content_len:
-                ctx.resume_len = byte_counter
-                # ctx.block_size = block_size
-                raise NextFragment()
-
             if ctx.stream is None:
                 self.to_stderr('\n')
                 self.report_error('Did not get any data blocks')
                 return False
+
+            if not is_test and ctx.chunk_size and ctx.content_len is not None and byte_counter < ctx.content_len:
+                ctx.resume_len = byte_counter
+                raise NextFragment()
+
             if ctx.tmpfilename != '-':
                 ctx.stream.close()
 
