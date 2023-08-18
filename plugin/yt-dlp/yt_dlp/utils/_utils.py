@@ -1556,12 +1556,7 @@ class YoutubeDLRedirectHandler(urllib.request.HTTPRedirectHandler):
 
         new_method = req.get_method()
         new_data = req.data
-
-        # Technically the Cookie header should be in unredirected_hdrs,
-        # however in practice some may set it in normal headers anyway.
-        # We will remove it here to prevent any leaks.
-        remove_headers = ['Cookie']
-
+        remove_headers = []
         # A 303 must either use GET or HEAD for subsequent request
         # https://datatracker.ietf.org/doc/html/rfc7231#section-6.4.4
         if code == 303 and req.get_method() != 'HEAD':
@@ -1578,7 +1573,7 @@ class YoutubeDLRedirectHandler(urllib.request.HTTPRedirectHandler):
             new_data = None
             remove_headers.extend(['Content-Length', 'Content-Type'])
 
-        new_headers = {k: v for k, v in req.headers.items() if k.title() not in remove_headers}
+        new_headers = {k: v for k, v in req.headers.items() if k.lower() not in remove_headers}
 
         return urllib.request.Request(
             newurl, headers=new_headers, origin_req_host=req.origin_req_host,
@@ -3763,6 +3758,8 @@ class download_range_func:
         self.chapters, self.ranges, self.from_info = chapters, ranges, from_info
 
     def __call__(self, info_dict, ydl):
+        if not any((self.ranges, self.chapters, self.from_info)):
+            yield {}
 
         warning = ('There are no chapters matching the regex' if info_dict.get('chapters')
                    else 'Cannot match chapters since chapter information is unavailable')
@@ -3782,11 +3779,9 @@ class download_range_func:
 
         if self.from_info and (info_dict.get('start_time') or info_dict.get('end_time')):
             yield {
-                'start_time': info_dict.get('start_time') or 0,
-                'end_time': info_dict.get('end_time') or float('inf'),
+                'start_time': info_dict.get('start_time'),
+                'end_time': info_dict.get('end_time'),
             }
-        elif not self.ranges and not self.chapters:
-            yield {}
 
     @staticmethod
     def _handle_negative_timestamp(time, info):
@@ -5118,7 +5113,7 @@ def format_field(obj, field=None, template='%s', ignore=NO_DEFAULT, default='', 
 
 
 def clean_podcast_url(url):
-    url = re.sub(r'''(?x)
+    return re.sub(r'''(?x)
         (?:
             (?:
                 chtbl\.com/track|
@@ -5132,7 +5127,6 @@ def clean_podcast_url(url):
                 st\.fm # https://podsights.com/docs/
             )/e
         )/''', '', url)
-    return re.sub(r'^\w+://(\w+://)', r'\1', url)
 
 
 _HEX_TABLE = '0123456789abcdef'

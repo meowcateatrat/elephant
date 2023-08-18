@@ -1,4 +1,3 @@
-# flake8: noqa: F401, F403
 import warnings
 
 from ..compat.compat_utils import passthrough_module
