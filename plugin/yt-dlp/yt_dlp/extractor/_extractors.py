@@ -497,7 +497,6 @@ from .dplay import (
     DiscoveryPlusItalyIE,
     DiscoveryPlusItalyShowIE,
     DiscoveryPlusIndiaShowIE,
-    GlobalCyclingNetworkPlusIE,
 )
 from .dreisat import DreiSatIE
 from .drbonanza import DRBonanzaIE
@@ -1120,8 +1119,7 @@ from .mojvideo import MojvideoIE
 from .morningstar import MorningstarIE
 from .motherless import (
     MotherlessIE,
-    MotherlessGroupIE,
-    MotherlessGalleryIE,
+    MotherlessGroupIE
 )
 from .motorsport import MotorsportIE
 from .movieclips import MovieClipsIE
@@ -1617,7 +1615,6 @@ from .rentv import (
 from .restudy import RestudyIE
 from .reuters import ReutersIE
 from .reverbnation import ReverbNationIE
-from .rheinmaintv import RheinMainTVIE
 from .rice import RICEIE
 from .rmcdecouverte import RMCDecouverteIE
 from .rockstargames import RockstarGamesIE

@@ -3507,8 +3507,7 @@ def get_compatible_ext(*, vcodecs, acodecs, vexts, aexts, preferences=None):
         },
     }
 
-    sanitize_codec = functools.partial(
-        try_get, getter=lambda x: x[0].split('.')[0].replace('0', '').lower())
+    sanitize_codec = functools.partial(try_get, getter=lambda x: x[0].split('.')[0].replace('0', ''))
     vcodec, acodec = sanitize_codec(vcodecs), sanitize_codec(acodecs)
 
     for ext in preferences or COMPATIBLE_CODECS.keys():
@@ -3754,11 +3753,11 @@ def match_filter_func(filters, breaking_filters=None):
 
 
 class download_range_func:
-    def __init__(self, chapters, ranges, from_info=False):
-        self.chapters, self.ranges, self.from_info = chapters, ranges, from_info
+    def __init__(self, chapters, ranges):
+        self.chapters, self.ranges = chapters, ranges
 
     def __call__(self, info_dict, ydl):
-        if not any((self.ranges, self.chapters, self.from_info)):
+        if not self.ranges and not self.chapters:
             yield {}
 
         warning = ('There are no chapters matching the regex' if info_dict.get('chapters')
@@ -3771,21 +3770,7 @@ class download_range_func:
         if self.chapters and warning:
             ydl.to_screen(f'[info] {info_dict["id"]}: {warning}')
 
-        for start, end in self.ranges or []:
-            yield {
-                'start_time': self._handle_negative_timestamp(start, info_dict),
-                'end_time': self._handle_negative_timestamp(end, info_dict),
-            }
-
-        if self.from_info and (info_dict.get('start_time') or info_dict.get('end_time')):
-            yield {
-                'start_time': info_dict.get('start_time'),
-                'end_time': info_dict.get('end_time'),
-            }
-
-    @staticmethod
-    def _handle_negative_timestamp(time, info):
-        return max(info['duration'] + time, 0) if info.get('duration') and time < 0 else time
+        yield from ({'start_time': start, 'end_time': end} for start, end in self.ranges or [])
 
     def __eq__(self, other):
         return (isinstance(other, download_range_func)
@@ -5738,9 +5723,9 @@ class FormatSorter:
         'source': {'convert': 'float', 'field': 'source_preference', 'default': -1},
 
         'codec': {'type': 'combined', 'field': ('vcodec', 'acodec')},
-        'br': {'type': 'multiple', 'field': ('tbr', 'vbr', 'abr'), 'convert': 'float_none',
+        'br': {'type': 'multiple', 'field': ('tbr', 'vbr', 'abr'),
                'function': lambda it: next(filter(None, it), None)},
-        'size': {'type': 'multiple', 'field': ('filesize', 'fs_approx'), 'convert': 'bytes',
+        'size': {'type': 'multiple', 'field': ('filesize', 'fs_approx'),
                  'function': lambda it: next(filter(None, it), None)},
         'ext': {'type': 'combined', 'field': ('vext', 'aext')},
         'res': {'type': 'multiple', 'field': ('height', 'width'),
