@@ -5,6 +5,8 @@ Powered by [YT-DLP](https://github.com/yt-dlp/yt-dlp).
 
 Check [FDM forum](https://www.freedownloadmanager.org/board/viewtopic.php?f=1&t=18630) for more details.
 
+Website: [free-addons.org](https://free-addons.org/).
+
 # Installation
 1. Clone (download) repository.
 2. Windows: Make sure you have 7-Zip installed. 
