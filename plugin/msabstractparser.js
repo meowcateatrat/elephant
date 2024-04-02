@@ -14,7 +14,10 @@ var msAbstractParser = (function()
 
             var proxyUrl = qtJsNetworkProxyMgr.proxyForUrl(obj.url).url();
             if (proxyUrl)
+            {
+                proxyUrl = proxyUrl.replace(/^https:\/\//i, 'http://'); // FDM bug workaround
                 args.push("--proxy", proxyUrl);
+            }
 
             args.push("-J", "--flat-playlist", "--no-warnings", "--compat-options", "no-youtube-unavailable-videos");
 
