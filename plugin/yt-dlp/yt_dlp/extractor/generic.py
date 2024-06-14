@@ -4,7 +4,7 @@ import types
 import urllib.parse
 import xml.etree.ElementTree
 
-from .common import InfoExtractor  # isort: split
+from .common import InfoExtractor
 from .commonprotocols import RtmpIE
 from .youtube import YoutubeIE
 from ..compat import compat_etree_fromstring
@@ -2102,22 +2102,6 @@ class GenericIE(InfoExtractor):
                 'duration': 318.0,
                 'direct': True,
                 'age_limit': 0,
-            },
-        },
-        {
-            'note': 'JW Player embed with unicode-escape sequences in URL',
-            'url': 'https://www.medici.tv/en/concerts/lahav-shani-mozart-mahler-israel-philharmonic-abu-dhabi-classics',
-            'info_dict': {
-                'id': 'm',
-                'ext': 'mp4',
-                'title': 'Lahav Shani conducts the Israel Philharmonic\'s first-ever concert in Abu Dhabi',
-                'description': 'Mahler\'s ',
-                'uploader': 'www.medici.tv',
-                'age_limit': 0,
-                'thumbnail': r're:^https?://.+\.jpg',
-            },
-            'params': {
-                'skip_download': True,
             },
         },
         {
