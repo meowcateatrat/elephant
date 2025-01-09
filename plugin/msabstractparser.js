@@ -11,6 +11,7 @@ var msAbstractParser = (function()
             console.log("parsing...");
 
             var args = [];
+			var tmpCookies;
 
             var proxyUrl = qtJsNetworkProxyMgr.proxyForUrl(obj.url).url();
             if (proxyUrl)
@@ -20,6 +21,13 @@ var msAbstractParser = (function()
             }
 
             args.push("-J", "--flat-playlist", "--no-warnings", "--compat-options", "no-youtube-unavailable-videos");
+
+            if (obj.cookies && obj.cookies.length)
+			{
+				tmpCookies = qtJsTools.createTmpFile("request_" + obj.requestId + "_cookies");
+				if (tmpCookies && tmpCookies.writeText(cookiesToNetscapeText(obj.cookies)))
+					args.push("--cookies", tmpCookies.path);
+			}
 
             if (customArgs.length)
                 args = args.concat(customArgs);
