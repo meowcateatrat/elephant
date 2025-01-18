@@ -32,7 +32,6 @@ from ..utils import (
     classproperty,
     clean_html,
     datetime_from_str,
-    dict_get,
     filesize_from_tbr,
     filter_dict,
     float_or_none,
@@ -117,6 +116,7 @@ INNERTUBE_CLIENTS = {
             },
         },
         'INNERTUBE_CONTEXT_CLIENT_NAME': 67,
+        'REQUIRE_PO_TOKEN': True,
         'SUPPORTS_COOKIES': True,
     },
     # This client now requires sign-in for every video
@@ -128,6 +128,7 @@ INNERTUBE_CLIENTS = {
             },
         },
         'INNERTUBE_CONTEXT_CLIENT_NAME': 62,
+        'REQUIRE_PO_TOKEN': True,
         'REQUIRE_AUTH': True,
         'SUPPORTS_COOKIES': True,
     },
@@ -162,7 +163,6 @@ INNERTUBE_CLIENTS = {
         'REQUIRE_JS_PLAYER': False,
         'REQUIRE_PO_TOKEN': True,
         'REQUIRE_AUTH': True,
-        'SUPPORTS_COOKIES': True,
     },
     # This client now requires sign-in for every video
     'android_creator': {
@@ -197,7 +197,6 @@ INNERTUBE_CLIENTS = {
         },
         'INNERTUBE_CONTEXT_CLIENT_NAME': 28,
         'REQUIRE_JS_PLAYER': False,
-        'SUPPORTS_COOKIES': True,
     },
     # iOS clients have HLS live streams. Setting device model to get 60fps formats.
     # See: https://github.com/TeamNewPipe/NewPipeExtractor/issues/680#issuecomment-1002724558
@@ -215,6 +214,7 @@ INNERTUBE_CLIENTS = {
         },
         'INNERTUBE_CONTEXT_CLIENT_NAME': 5,
         'REQUIRE_JS_PLAYER': False,
+        'REQUIRE_PO_TOKEN': True,
     },
     # This client now requires sign-in for every video
     'ios_music': {
@@ -231,8 +231,8 @@ INNERTUBE_CLIENTS = {
         },
         'INNERTUBE_CONTEXT_CLIENT_NAME': 26,
         'REQUIRE_JS_PLAYER': False,
+        'REQUIRE_PO_TOKEN': True,
         'REQUIRE_AUTH': True,
-        'SUPPORTS_COOKIES': True,
     },
     # This client now requires sign-in for every video
     'ios_creator': {
@@ -249,6 +249,7 @@ INNERTUBE_CLIENTS = {
         },
         'INNERTUBE_CONTEXT_CLIENT_NAME': 15,
         'REQUIRE_JS_PLAYER': False,
+        'REQUIRE_PO_TOKEN': True,
         'REQUIRE_AUTH': True,
     },
     # mweb has 'ultralow' formats
@@ -258,10 +259,12 @@ INNERTUBE_CLIENTS = {
             'client': {
                 'clientName': 'MWEB',
                 'clientVersion': '2.20241202.07.00',
+                # mweb previously did not require PO Token with this UA
                 'userAgent': 'Mozilla/5.0 (iPad; CPU OS 16_7_10 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1,gzip(gfe)',
             },
         },
         'INNERTUBE_CONTEXT_CLIENT_NAME': 2,
+        'REQUIRE_PO_TOKEN': True,
         'SUPPORTS_COOKIES': True,
     },
     'tv': {
@@ -518,11 +521,12 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
         return self._search_regex(rf'^({self._YT_CHANNEL_UCID_RE})$', ucid, 'UC-id', default=None)
 
     def handle_or_none(self, handle):
-        return self._search_regex(rf'^({self._YT_HANDLE_RE})$', handle, '@-handle', default=None)
+        return self._search_regex(rf'^({self._YT_HANDLE_RE})$', urllib.parse.unquote(handle or ''),
+                                  '@-handle', default=None)
 
     def handle_from_url(self, url):
         return self._search_regex(rf'^(?:https?://(?:www\.)?youtube\.com)?/({self._YT_HANDLE_RE})',
-                                  url, 'channel handle', default=None)
+                                  urllib.parse.unquote(url or ''), 'channel handle', default=None)
 
     def ucid_from_url(self, url):
         return self._search_regex(rf'^(?:https?://(?:www\.)?youtube\.com)?/({self._YT_CHANNEL_UCID_RE})',
@@ -567,9 +571,15 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
         pref.update({'hl': self._preferred_lang or 'en', 'tz': 'UTC'})
         self._set_cookie('.youtube.com', name='PREF', value=urllib.parse.urlencode(pref))
 
+    def _initialize_cookie_auth(self):
+        yt_sapisid, yt_1psapisid, yt_3psapisid = self._get_sid_cookies()
+        if yt_sapisid or yt_1psapisid or yt_3psapisid:
+            self.write_debug('Found YouTube account cookies')
+
     def _real_initialize(self):
         self._initialize_pref()
         self._initialize_consent()
+        self._initialize_cookie_auth()
         self._check_login_required()
 
     def _perform_login(self, username, password):
@@ -627,32 +637,63 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
         client_context.update({'hl': self._preferred_lang or 'en', 'timeZone': 'UTC', 'utcOffsetMinutes': 0})
         return context
 
-    _SAPISID = None
+    @staticmethod
+    def _make_sid_authorization(scheme, sid, origin, additional_parts):
+        timestamp = str(round(time.time()))
 
-    def _generate_sapisidhash_header(self, origin='https://www.youtube.com'):
-        time_now = round(time.time())
-        if self._SAPISID is None:
-            yt_cookies = self._get_cookies('https://www.youtube.com')
-            # Sometimes SAPISID cookie isn't present but __Secure-3PAPISID is.
-            # See: https://github.com/yt-dlp/yt-dlp/issues/393
-            sapisid_cookie = dict_get(
-                yt_cookies, ('__Secure-3PAPISID', 'SAPISID'))
-            if sapisid_cookie and sapisid_cookie.value:
-                self._SAPISID = sapisid_cookie.value
-                self.write_debug('Extracted SAPISID cookie')
-                # SAPISID cookie is required if not already present
-                if not yt_cookies.get('SAPISID'):
-                    self.write_debug('Copying __Secure-3PAPISID cookie to SAPISID cookie')
-                    self._set_cookie(
-                        '.youtube.com', 'SAPISID', self._SAPISID, secure=True, expire_time=time_now + 3600)
-            else:
-                self._SAPISID = False
-        if not self._SAPISID:
+        hash_parts = []
+        if additional_parts:
+            hash_parts.append(':'.join(additional_parts.values()))
+        hash_parts.extend([timestamp, sid, origin])
+        sidhash = hashlib.sha1(' '.join(hash_parts).encode()).hexdigest()
+
+        parts = [timestamp, sidhash]
+        if additional_parts:
+            parts.append(''.join(additional_parts))
+
+        return f'{scheme} {"_".join(parts)}'
+
+    def _get_sid_cookies(self):
+        """
+        Get SAPISID, 1PSAPISID, 3PSAPISID cookie values
+        @returns sapisid, 1psapisid, 3psapisid
+        """
+        yt_cookies = self._get_cookies('https://www.youtube.com')
+        yt_sapisid = try_call(lambda: yt_cookies['SAPISID'].value)
+        yt_3papisid = try_call(lambda: yt_cookies['__Secure-3PAPISID'].value)
+        yt_1papisid = try_call(lambda: yt_cookies['__Secure-1PAPISID'].value)
+
+        # Sometimes SAPISID cookie isn't present but __Secure-3PAPISID is.
+        # YouTube also falls back to __Secure-3PAPISID if SAPISID is missing.
+        # See: https://github.com/yt-dlp/yt-dlp/issues/393
+
+        return yt_sapisid or yt_3papisid, yt_1papisid, yt_3papisid
+
+    def _get_sid_authorization_header(self, origin='https://www.youtube.com', user_session_id=None):
+        """
+        Generate API Session ID Authorization for Innertube requests. Assumes all requests are secure (https).
+        @param origin: Origin URL
+        @param user_session_id: Optional User Session ID
+        @return: Authorization header value
+        """
+
+        authorizations = []
+        additional_parts = {}
+        if user_session_id:
+            additional_parts['u'] = user_session_id
+
+        yt_sapisid, yt_1psapisid, yt_3psapisid = self._get_sid_cookies()
+
+        for scheme, sid in (('SAPISIDHASH', yt_sapisid),
+                            ('SAPISID1PHASH', yt_1psapisid),
+                            ('SAPISID3PHASH', yt_3psapisid)):
+            if sid:
+                authorizations.append(self._make_sid_authorization(scheme, sid, origin, additional_parts))
+
+        if not authorizations:
             return None
-        # SAPISIDHASH algorithm from https://stackoverflow.com/a/32065323
-        sapisidhash = hashlib.sha1(
-            f'{time_now} {self._SAPISID} {origin}'.encode()).hexdigest()
-        return f'SAPISIDHASH {time_now}_{sapisidhash}'
+
+        return ' '.join(authorizations)
 
     def _call_api(self, ep, query, video_id, fatal=True, headers=None,
                   note='Downloading API JSON', errnote='Unable to download API page',
@@ -688,26 +729,48 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
             if session_index is not None:
                 return session_index
 
-    def _data_sync_id_to_delegated_session_id(self, data_sync_id):
-        if not data_sync_id:
-            return
-        # datasyncid is of the form "channel_syncid||user_syncid" for secondary channel
-        # and just "user_syncid||" for primary channel. We only want the channel_syncid
-        channel_syncid, _, user_syncid = data_sync_id.partition('||')
-        if user_syncid:
-            return channel_syncid
-
-    def _extract_account_syncid(self, *args):
+    @staticmethod
+    def _parse_data_sync_id(data_sync_id):
         """
-        Extract current session ID required to download private playlists of secondary channels
+        Parse data_sync_id into delegated_session_id and user_session_id.
+
+        data_sync_id is of the form "delegated_session_id||user_session_id" for secondary channel
+        and just "user_session_id||" for primary channel.
+
+        @param data_sync_id: data_sync_id string
+        @return: Tuple of (delegated_session_id, user_session_id)
+        """
+        if not data_sync_id:
+            return None, None
+        first, _, second = data_sync_id.partition('||')
+        if second:
+            return first, second
+        return None, first
+
+    def _extract_delegated_session_id(self, *args):
+        """
+        Extract current delegated session ID required to download private playlists of secondary channels
         @params response and/or ytcfg
+        @return: delegated session ID
         """
         # ytcfg includes channel_syncid if on secondary channel
         if delegated_sid := traverse_obj(args, (..., 'DELEGATED_SESSION_ID', {str}, any)):
             return delegated_sid
 
         data_sync_id = self._extract_data_sync_id(*args)
-        return self._data_sync_id_to_delegated_session_id(data_sync_id)
+        return self._parse_data_sync_id(data_sync_id)[0]
+
+    def _extract_user_session_id(self, *args):
+        """
+        Extract current user session ID
+        @params response and/or ytcfg
+        @return: user session ID
+        """
+        if user_sid := traverse_obj(args, (..., 'USER_SESSION_ID', {str}, any)):
+            return user_sid
+
+        data_sync_id = self._extract_data_sync_id(*args)
+        return self._parse_data_sync_id(data_sync_id)[1]
 
     def _extract_data_sync_id(self, *args):
         """
@@ -734,7 +797,7 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
 
     @functools.cached_property
     def is_authenticated(self):
-        return bool(self._generate_sapisidhash_header())
+        return bool(self._get_sid_authorization_header())
 
     def extract_ytcfg(self, video_id, webpage):
         if not webpage:
@@ -744,25 +807,28 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
                 r'ytcfg\.set\s*\(\s*({.+?})\s*\)\s*;', webpage, 'ytcfg',
                 default='{}'), video_id, fatal=False) or {}
 
-    def _generate_cookie_auth_headers(self, *, ytcfg=None, account_syncid=None, session_index=None, origin=None, **kwargs):
+    def _generate_cookie_auth_headers(self, *, ytcfg=None, delegated_session_id=None, user_session_id=None, session_index=None, origin=None, **kwargs):
         headers = {}
-        account_syncid = account_syncid or self._extract_account_syncid(ytcfg)
-        if account_syncid:
-            headers['X-Goog-PageId'] = account_syncid
+        delegated_session_id = delegated_session_id or self._extract_delegated_session_id(ytcfg)
+        if delegated_session_id:
+            headers['X-Goog-PageId'] = delegated_session_id
         if session_index is None:
             session_index = self._extract_session_index(ytcfg)
-        if account_syncid or session_index is not None:
+        if delegated_session_id or session_index is not None:
             headers['X-Goog-AuthUser'] = session_index if session_index is not None else 0
 
-        auth = self._generate_sapisidhash_header(origin)
+        auth = self._get_sid_authorization_header(origin, user_session_id=user_session_id or self._extract_user_session_id(ytcfg))
         if auth is not None:
             headers['Authorization'] = auth
             headers['X-Origin'] = origin
 
+        if traverse_obj(ytcfg, 'LOGGED_IN', expected_type=bool):
+            headers['X-Youtube-Bootstrap-Logged-In'] = 'true'
+
         return headers
 
     def generate_api_headers(
-            self, *, ytcfg=None, account_syncid=None, session_index=None,
+            self, *, ytcfg=None, delegated_session_id=None, user_session_id=None, session_index=None,
             visitor_data=None, api_hostname=None, default_client='web', **kwargs):
 
         origin = 'https://' + (self._select_api_hostname(api_hostname, default_client))
@@ -773,7 +839,12 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
             'Origin': origin,
             'X-Goog-Visitor-Id': visitor_data or self._extract_visitor_data(ytcfg),
             'User-Agent': self._ytcfg_get_safe(ytcfg, lambda x: x['INNERTUBE_CONTEXT']['client']['userAgent'], default_client=default_client),
-            **self._generate_cookie_auth_headers(ytcfg=ytcfg, account_syncid=account_syncid, session_index=session_index, origin=origin),
+            **self._generate_cookie_auth_headers(
+                ytcfg=ytcfg,
+                delegated_session_id=delegated_session_id,
+                user_session_id=user_session_id,
+                session_index=session_index,
+                origin=origin),
         }
         return filter_dict(headers)
 
@@ -1356,8 +1427,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         '401': {'ext': 'mp4', 'height': 2160, 'format_note': 'DASH video', 'vcodec': 'av01.0.12M.08'},
     }
     _SUBTITLE_FORMATS = ('json3', 'srv1', 'srv2', 'srv3', 'ttml', 'vtt')
-    _DEFAULT_CLIENTS = ('ios', 'mweb')
-    _DEFAULT_AUTHED_CLIENTS = ('web_creator', 'mweb')
+    _DEFAULT_CLIENTS = ('tv', 'ios', 'web')
+    _DEFAULT_AUTHED_CLIENTS = ('tv', 'web')
 
     _GEO_BYPASS = False
 
@@ -1495,7 +1566,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         },
         # Age-gate videos. See https://github.com/yt-dlp/yt-dlp/pull/575#issuecomment-888837000
         {
-            'note': 'Embed allowed age-gate video',
+            'note': 'Embed allowed age-gate video; works with web_embedded',
             'url': 'https://youtube.com/watch?v=HtVdAasjOgU',
             'info_dict': {
                 'id': 'HtVdAasjOgU',
@@ -1525,7 +1596,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 'heatmap': 'count:100',
                 'timestamp': 1401991663,
             },
-            'skip': 'Age-restricted; requires authentication',
         },
         {
             'note': 'Age-gate video with embed allowed in public site',
@@ -2801,6 +2871,35 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 'extractor_args': {'youtube': {'player_client': ['ios'], 'player_skip': ['webpage']}},
             },
         },
+        {
+            # uploader_id has non-ASCII characters that are percent-encoded in YT's JSON
+            'url': 'https://www.youtube.com/shorts/18NGQq7p3LY',
+            'info_dict': {
+                'id': '18NGQq7p3LY',
+                'ext': 'mp4',
+                'title': '아이브 이서 장원영 리즈 삐끼삐끼 챌린지',
+                'description': '',
+                'uploader': 'ㅇㅇ',
+                'uploader_id': '@으아-v1k',
+                'uploader_url': 'https://www.youtube.com/@으아-v1k',
+                'channel': 'ㅇㅇ',
+                'channel_id': 'UCC25oTm2J7ZVoi5TngOHg9g',
+                'channel_url': 'https://www.youtube.com/channel/UCC25oTm2J7ZVoi5TngOHg9g',
+                'thumbnail': r're:https?://.+/.+\.jpg',
+                'playable_in_embed': True,
+                'age_limit': 0,
+                'duration': 3,
+                'timestamp': 1724306170,
+                'upload_date': '20240822',
+                'availability': 'public',
+                'live_status': 'not_live',
+                'view_count': int,
+                'like_count': int,
+                'channel_follower_count': int,
+                'categories': ['People & Blogs'],
+                'tags': [],
+            },
+        },
     ]
 
     _WEBPAGE_TESTS = [
@@ -3808,9 +3907,13 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             default_client=client,
             visitor_data=visitor_data,
             session_index=self._extract_session_index(master_ytcfg, player_ytcfg),
-            account_syncid=(
-                self._data_sync_id_to_delegated_session_id(data_sync_id)
-                or self._extract_account_syncid(master_ytcfg, initial_pr, player_ytcfg)
+            delegated_session_id=(
+                self._parse_data_sync_id(data_sync_id)[0]
+                or self._extract_delegated_session_id(master_ytcfg, initial_pr, player_ytcfg)
+            ),
+            user_session_id=(
+                self._parse_data_sync_id(data_sync_id)[1]
+                or self._extract_user_session_id(master_ytcfg, initial_pr, player_ytcfg)
             ),
         )
 
@@ -3860,15 +3963,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 requested_clients.remove(excluded_client)
         if not requested_clients:
             raise ExtractorError('No player clients have been requested', expected=True)
-
-        if smuggled_data.get('is_music_url') or self.is_music_url(url):
-            for requested_client in requested_clients:
-                _, base_client, variant = _split_innertube_client(requested_client)
-                music_client = f'{base_client}_music' if base_client != 'mweb' else 'web_music'
-                if variant != 'music' and music_client in INNERTUBE_CLIENTS:
-                    client_info = INNERTUBE_CLIENTS[music_client]
-                    if not client_info['REQUIRE_AUTH'] or (self.is_authenticated and client_info['SUPPORTS_COOKIES']):
-                        requested_clients.append(music_client)
 
         if self.is_authenticated:
             unsupported_clients = [
@@ -3944,13 +4038,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             )
 
             require_po_token = self._get_default_ytcfg(client).get('REQUIRE_PO_TOKEN')
-            if not po_token and require_po_token:
+            if not po_token and require_po_token and 'missing_pot' in self._configuration_arg('formats'):
                 self.report_warning(
                     f'No PO Token provided for {client} client, '
-                    f'which is required for working {client} formats. '
-                    f'You can manually pass a PO Token for this client with '
-                    f'--extractor-args "youtube:po_token={client}+XXX"',
-                    only_once=True)
+                    f'which may be required for working {client} formats. This client will be deprioritized', only_once=True)
                 deprioritize_pr = True
 
             pr = initial_pr if client == 'web' else None
@@ -3983,19 +4074,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 else:
                     prs.append(pr)
 
-            ''' This code is pointless while web_creator is in _DEFAULT_AUTHED_CLIENTS
-            # EU countries require age-verification for accounts to access age-restricted videos
-            # If account is not age-verified, _is_agegated() will be truthy for non-embedded clients
-            if self.is_authenticated and self._is_agegated(pr):
-                self.to_screen(
-                    f'{video_id}: This video is age-restricted and YouTube is requiring '
-                    'account age-verification; some formats may be missing', only_once=True)
-                # web_creator can work around the age-verification requirement
-                # android_vr may also be able to work around age-verification
-                # tv_embedded may(?) still work around age-verification if the video is embeddable
-                append_client('web_creator')
-            '''
-
         prs.extend(deprioritized_prs)
 
         if skipped_clients:
@@ -4013,6 +4091,21 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         if ((live_status == 'is_live' and self.get_param('live_from_start'))
                 or (live_status == 'post_live' and (duration or 0) > 2 * 3600)):
             return live_status
+
+    def _report_pot_format_skipped(self, video_id, client_name, proto):
+        msg = (
+            f'{video_id}: {client_name} client {proto} formats require a PO Token which was not provided. '
+            'They will be skipped as they may yield HTTP Error 403. '
+            f'You can manually pass a PO Token for this client with --extractor-args "youtube:po_token={client_name}+XXX". '
+            'For more information, refer to  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#po-token-guide . '
+            'To enable these broken formats anyway, pass --extractor-args "youtube:formats=missing_pot"')
+
+        # Only raise a warning for non-default clients, to not confuse users.
+        # iOS HLS formats still work without PO Token, so we don't need to warn about them.
+        if client_name in (*self._DEFAULT_CLIENTS, *self._DEFAULT_AUTHED_CLIENTS):
+            self.write_debug(msg, only_once=True)
+        else:
+            self.report_warning(msg, only_once=True)
 
     def _extract_formats_and_subtitles(self, streaming_data, video_id, player_url, live_status, duration):
         CHUNK_SIZE = 10 << 20
@@ -4140,11 +4233,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 fmt_url = update_url_query(fmt_url, {'pot': po_token})
 
             # Clients that require PO Token return videoplayback URLs that may return 403
-            is_broken = (not po_token and self._get_default_ytcfg(client_name).get('REQUIRE_PO_TOKEN'))
-            if is_broken:
-                self.report_warning(
-                    f'{video_id}: {client_name} client formats require a PO Token which was not provided. '
-                    'They will be deprioritized as they may yield HTTP Error 403', only_once=True)
+            require_po_token = (not po_token and self._get_default_ytcfg(client_name).get('REQUIRE_PO_TOKEN'))
+            if require_po_token and 'missing_pot' not in self._configuration_arg('formats'):
+                self._report_pot_format_skipped(video_id, client_name, 'https')
+                continue
 
             name = fmt.get('qualityLabel') or quality.replace('audio_quality_', '') or ''
             fps = int_or_none(fmt.get('fps')) or 0
@@ -4157,7 +4249,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     name, fmt.get('isDrc') and 'DRC',
                     try_get(fmt, lambda x: x['projectionType'].replace('RECTANGULAR', '').lower()),
                     try_get(fmt, lambda x: x['spatialAudioType'].replace('SPATIAL_AUDIO_TYPE_', '').lower()),
-                    is_damaged and 'DAMAGED', is_broken and 'BROKEN',
+                    is_damaged and 'DAMAGED', require_po_token and 'MISSING POT',
                     (self.get_param('verbose') or all_formats) and short_client_name(client_name),
                     delim=', '),
                 # Format 22 is likely to be damaged. See https://github.com/yt-dlp/yt-dlp/issues/3372
@@ -4174,7 +4266,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 'language': join_nonempty(language_code, 'desc' if is_descriptive else '') or None,
                 'language_preference': PREFERRED_LANG_VALUE if is_original else 5 if is_default else -10 if is_descriptive else -1,
                 # Strictly de-prioritize broken, damaged and 3gp formats
-                'preference': -20 if is_broken else -10 if is_damaged else -2 if itag == '17' else None,
+                'preference': -20 if require_po_token else -10 if is_damaged else -2 if itag == '17' else None,
             }
             mime_mobj = re.match(
                 r'((?:[^/]+)/(?:[^;]+))(?:;\s*codecs="([^"]+)")?', fmt.get('mimeType') or '')
@@ -4224,7 +4316,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             key = (proto, f.get('language'))
             if not all_formats and key in itags[itag]:
                 return False
-            itags[itag].add(key)
 
             if f.get('source_preference') is None:
                 f['source_preference'] = -1
@@ -4232,11 +4323,13 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             # Clients that require PO Token return videoplayback URLs that may return 403
             # hls does not currently require PO Token
             if (not po_token and self._get_default_ytcfg(client_name).get('REQUIRE_PO_TOKEN')) and proto != 'hls':
-                self.report_warning(
-                    f'{video_id}: {client_name} client {proto} formats require a PO Token which was not provided. '
-                    'They will be deprioritized as they may yield HTTP Error 403', only_once=True)
-                f['format_note'] = join_nonempty(f.get('format_note'), 'BROKEN', delim=' ')
+                if 'missing_pot' not in self._configuration_arg('formats'):
+                    self._report_pot_format_skipped(video_id, client_name, proto)
+                    return False
+                f['format_note'] = join_nonempty(f.get('format_note'), 'MISSING POT', delim=' ')
                 f['source_preference'] -= 20
+
+            itags[itag].add(key)
 
             if itag and all_formats:
                 f['format_id'] = f'{itag}-{proto}'
@@ -5301,7 +5394,7 @@ class YoutubeTabBaseInfoExtractor(YoutubeBaseInfoExtractor):
         if not continuation_list[0]:
             continuation_list[0] = self._extract_continuation(parent_renderer)
 
-    def _entries(self, tab, item_id, ytcfg, account_syncid, visitor_data):
+    def _entries(self, tab, item_id, ytcfg, delegated_session_id, visitor_data):
         continuation_list = [None]
         extract_entries = lambda x: self._extract_entries(x, continuation_list)
         tab_content = try_get(tab, lambda x: x['content'], dict)
@@ -5322,7 +5415,7 @@ class YoutubeTabBaseInfoExtractor(YoutubeBaseInfoExtractor):
                 break
             seen_continuations.add(continuation_token)
             headers = self.generate_api_headers(
-                ytcfg=ytcfg, account_syncid=account_syncid, visitor_data=visitor_data)
+                ytcfg=ytcfg, delegated_session_id=delegated_session_id, visitor_data=visitor_data)
             response = self._extract_response(
                 item_id=f'{item_id} page {page_num}',
                 query=continuation, headers=headers, ytcfg=ytcfg,
@@ -5392,7 +5485,7 @@ class YoutubeTabBaseInfoExtractor(YoutubeBaseInfoExtractor):
         return self.playlist_result(
             self._entries(
                 selected_tab, metadata['id'], ytcfg,
-                self._extract_account_syncid(ytcfg, data),
+                self._extract_delegated_session_id(ytcfg, data),
                 self._extract_visitor_data(data, ytcfg)),
             **metadata)
 
@@ -5544,7 +5637,7 @@ class YoutubeTabBaseInfoExtractor(YoutubeBaseInfoExtractor):
             watch_endpoint = try_get(
                 playlist, lambda x: x['contents'][-1]['playlistPanelVideoRenderer']['navigationEndpoint']['watchEndpoint'])
             headers = self.generate_api_headers(
-                ytcfg=ytcfg, account_syncid=self._extract_account_syncid(ytcfg, data),
+                ytcfg=ytcfg, delegated_session_id=self._extract_delegated_session_id(ytcfg, data),
                 visitor_data=self._extract_visitor_data(response, data, ytcfg))
             query = {
                 'playlistId': playlist_id,
@@ -5642,7 +5735,7 @@ class YoutubeTabBaseInfoExtractor(YoutubeBaseInfoExtractor):
         if not is_playlist:
             return
         headers = self.generate_api_headers(
-            ytcfg=ytcfg, account_syncid=self._extract_account_syncid(ytcfg, data),
+            ytcfg=ytcfg, delegated_session_id=self._extract_delegated_session_id(ytcfg, data),
             visitor_data=self._extract_visitor_data(data, ytcfg))
         query = {
             'params': 'wgYCCAA=',
