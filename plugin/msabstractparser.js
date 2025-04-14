@@ -16,11 +16,13 @@ var msAbstractParser = (function()
             let tmpCookies;
             let systemUserAgent;
             let systemBrowser;
+            let allowWbCookies = true;
             
             try
             {
                 systemUserAgent = qtJsSystem.defaultUserAgent;
                 systemBrowser = qtJsSystem.defaultWebBrowser;
+                allowWbCookies = App.pluginsAllowWbCookies;
             }
             catch(e) {}
 
@@ -33,25 +35,28 @@ var msAbstractParser = (function()
 
             args.push("-J", "--flat-playlist", "--no-warnings", "--compat-options", "no-youtube-unavailable-videos");
 
-            if (obj.cookies && obj.cookies.length)
+            if (allowWbCookies)
             {
-                tmpCookies = qtJsTools.createTmpFile("request_" + obj.requestId + "_cookies");
-                if (tmpCookies && tmpCookies.writeText(cookiesToNetscapeText(obj.cookies)))
-                    args.push("--cookies", tmpCookies.path);
-            }
-            else
-            {
-                let browser = obj.browser || systemBrowser;
-                if (browser)
+                if (obj.cookies && obj.cookies.length)
                 {
-                    if (!(browser in g_browsers))
+                    tmpCookies = qtJsTools.createTmpFile("request_" + obj.requestId + "_cookies");
+                    if (tmpCookies && tmpCookies.writeText(cookiesToNetscapeText(obj.cookies)))
+                        args.push("--cookies", tmpCookies.path);
+                }
+                else
+                {
+                    let browser = obj.browser || systemBrowser;
+                    if (browser)
                     {
-                        return this.checkBrowser(obj.requestId, obj.interactive, browser)
-                            .then(() => this.parse(obj, customArgs));
-                    }
-                    else if (g_browsers[browser])
-                    {
-                        args.push('--cookies-from-browser', browser);
+                        if (!(browser in g_browsers))
+                        {
+                            return this.checkBrowser(obj.requestId, obj.interactive, browser)
+                                .then(() => this.parse(obj, customArgs));
+                        }
+                        else if (g_browsers[browser])
+                        {
+                            args.push('--cookies-from-browser', browser);
+                        }
                     }
                 }
             }
