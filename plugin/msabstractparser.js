@@ -121,6 +121,11 @@ var msAbstractParser = (function()
             return true;
         },
         
+        minIntevalBetweenQueryInfoDownloads: function()
+        {
+            return 300;
+        },
+        
         checkBrowser: function(requestId, interactive, browser)
         {
             console.log("Checking browser support (", browser, ")...");

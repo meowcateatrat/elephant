@@ -17,7 +17,9 @@ var msParser = (function()
 
         isPossiblySupportedSource: msAbstractParser.isPossiblySupportedSource,
 
-	overrideUrlPolicy: msAbstractParser.overrideUrlPolicy
+        overrideUrlPolicy: msAbstractParser.overrideUrlPolicy,
+        
+        minIntevalBetweenQueryInfoDownloads: msAbstractParser.minIntevalBetweenQueryInfoDownloads
     };
 
     return new MsParser();
