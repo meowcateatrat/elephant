@@ -1,0 +1,6 @@
+services:
+  elephant:
+    image: elephant
+    build:
+      context: .
+      dockerfile: ./Dockerfile
