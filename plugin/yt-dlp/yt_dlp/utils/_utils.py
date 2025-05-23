@@ -54,7 +54,7 @@ from ..compat import (
 from ..dependencies import xattr
 from ..globals import IN_CLI
 
-__name__ = __name__.rsplit('.', 1)[0]  # noqa: A001: Pretend to be the parent module
+__name__ = __name__.rsplit('.', 1)[0]  # noqa: A001 # Pretend to be the parent module
 
 
 class NO_DEFAULT:
@@ -2044,7 +2044,7 @@ def url_or_none(url):
     if not url or not isinstance(url, str):
         return None
     url = url.strip()
-    return url if re.match(r'(?:(?:https?|rt(?:m(?:pt?[es]?|fp)|sp[su]?)|mms|ftps?):)?//', url) else None
+    return url if re.match(r'(?:(?:https?|rt(?:m(?:pt?[es]?|fp)|sp[su]?)|mms|ftps?|wss?):)?//', url) else None
 
 
 def strftime_or_none(timestamp, date_format='%Y%m%d', default=None):
