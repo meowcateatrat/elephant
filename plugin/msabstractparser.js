@@ -73,14 +73,19 @@ var msAbstractParser = (function()
             return launchPythonScript(obj.requestId, obj.interactive, "yt-dlp/yt_dlp/__main__.py", args)
             .then(function(obj)
             {
-                console.log("Python result: ", obj.output);
+                if (obj.output)
+                    console.log("Python result: ", obj.output);
+
+                if (obj.errorOutput)
+                    console.log("Python errors: ", obj.errorOutput);
 
                 return new Promise(function (resolve, reject)
                 {
-                    var output = obj.output.trim();
+                    let output = obj.output.trim();
                     if (!output || output[0] !== '{')
                     {
-                        var isUnsupportedUrl = /ERROR:\s*\[generic\]\s*Unsupported URL:/.test(output);
+                        let e = obj.errorOutput || output
+                        let isUnsupportedUrl = /ERROR:\s*(\[generic\])?\s*Unsupported URL:/.test(e);
                         reject({
                                    error: isUnsupportedUrl ? "Unsupported URL" : "Parse error",
                                    isParseError: !isUnsupportedUrl
