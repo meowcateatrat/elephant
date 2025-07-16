@@ -84,7 +84,7 @@ var msAbstractParser = (function()
                     let output = obj.output.trim();
                     if (!output || output[0] !== '{')
                     {
-                        let e = obj.errorOutput || output
+                        let e = obj.errorOutput || output;
                         let isUnsupportedUrl = /ERROR:\s*(\[generic\])?\s*Unsupported URL:/.test(e);
                         reject({
                                    error: isUnsupportedUrl ? "Unsupported URL" : "Parse error",
