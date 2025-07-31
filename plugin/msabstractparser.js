@@ -73,19 +73,14 @@ var msAbstractParser = (function()
             return launchPythonScript(obj.requestId, obj.interactive, "yt-dlp/yt_dlp/__main__.py", args)
             .then(function(obj)
             {
-                if (obj.output)
-                    console.log("Python result: ", obj.output);
-
-                if (obj.errorOutput)
-                    console.log("Python errors: ", obj.errorOutput);
+                logPythonResult(obj);
 
                 return new Promise(function (resolve, reject)
                 {
                     let output = obj.output.trim();
                     if (!output || output[0] !== '{')
                     {
-                        let e = obj.errorOutput || output;
-                        let isUnsupportedUrl = /ERROR:\s*(\[generic\])?\s*Unsupported URL:/.test(e);
+                        let isUnsupportedUrl = /ERROR:\s*(\[generic\])?\s*Unsupported URL:/.test(obj.errorOutput);
                         reject({
                                    error: isUnsupportedUrl ? "Unsupported URL" : "Parse error",
                                    isParseError: !isUnsupportedUrl
@@ -138,28 +133,17 @@ var msAbstractParser = (function()
             return launchPythonScript(requestId, interactive, "yt-dlp/yt_dlp/__main__.py", ['--cookies-from-browser', browser, 'e692ec362191442c960a761ac6b84878://test.test'])
             .then(function(obj)
             {
-                console.log("Python result: ", obj.output);
+                logPythonResult(obj);
 
                 return new Promise(function (resolve, reject)
                 {
-                    var output = obj.output.trim();
-                    if (!output)
-                    {
-                        reject({
-                                   error: "Parse error",
-                                   isParseError: false
-                               });
-                    }
-                    else
-                    {
-                        let isSupported = /"e692ec362191442c960a761ac6b84878"/.test(output);
+                    let isSupported = /"e692ec362191442c960a761ac6b84878"/.test(obj.errorOutput);
                         
-                        console.log(browser, " supported: ", isSupported);
+                    console.log(browser, " supported: ", isSupported);
                         
-                        g_browsers[browser] = isSupported;
+                    g_browsers[browser] = isSupported;
                         
-                        resolve();
-                    }
+                    resolve();
                 });
             });
         }

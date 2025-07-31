@@ -20,3 +20,12 @@ function cookiesToNetscapeText(cookies)
 	
 	return r;
 }
+
+function logPythonResult(obj)
+{
+   if (obj.output)
+       console.log("Python result: ", obj.output);
+
+   if (obj.errorOutput)
+       console.log("Python errors: ", obj.errorOutput);
+}
