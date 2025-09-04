@@ -15,3 +15,5 @@ Website: [free-addons.org](https://free-addons.org/).
 
 # Troubleshooting
 Can't download? Make sure that "Allow add-ons to use web browser cookies" option is enabled in FDM add-ons' settings. Beware that by enabling this option you run the risk of your account being banned (temporarily or permanently). Be mindful with the request rate and amount of downloads you make with an account.
+
+One more thing to note is that Mozilla Firefox web browser is recommended, as it's well supported to get the cookies from.
