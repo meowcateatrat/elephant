@@ -53,9 +53,23 @@ var msAbstractParser = (function()
                             return this.checkBrowser(obj.requestId, obj.interactive, browser)
                                 .then(() => this.parse(obj, customArgs));
                         }
-                        else if (g_browsers[browser])
+                        else
                         {
-                            args.push('--cookies-from-browser', browser);
+                            // In case the current web browser is not supported,
+                            // let's try Mozilla Firefox as the most well-supported web browser.
+                            if (!g_browsers[browser] && browser !== "firefox")
+                            {
+                                browser = "firefox";
+                                
+                                if (!(browser in g_browsers))
+                                {
+                                    return this.checkBrowser(obj.requestId, obj.interactive, browser)
+                                        .then(() => this.parse(obj, customArgs));
+                                }
+                            }
+                            
+                            if (g_browsers[browser])
+                                args.push('--cookies-from-browser', browser);
                         }
                     }
                 }
