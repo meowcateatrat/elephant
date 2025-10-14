@@ -1,0 +1,28 @@
+name: release
+
+run-name: Generate release assets for v${{ github.event.release.tag_name }}
+
+on:
+  release:
+    types:
+      - released
+
+jobs:
+  package-and-upload:
+    name: Package and upload release assets
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repo
+      - uses: actions/checkout@v5
+      # Package add-on
+      - name: Create Elephant add-on fda package
+        run: |
+          mkdir ./dist
+          (cd ./plugin && zip -r ../dist/elephant.fda .)
+      # Upload release assets
+      - name: Upload packaged add-on to release v${{ github.event.release.tag_name }}
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ./dist/*
