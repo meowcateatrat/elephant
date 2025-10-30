@@ -8,6 +8,7 @@ Check [Free Download Manager forum](https://www.freedownloadmanager.org/board/vi
 Website: [free-addons.org](https://free-addons.org/).
 
 # Building
+> **_NOTE:_**  You don't have to build Elephant add-on on your own, if you don't want to. Just proceeed to the Installation section then.
 1. Clone (download) repository.
 2. Windows: Make sure you have 7-Zip installed. 
 3. Windows: Launch build/build-windows.bat. Unix: Launch build/build-unix.sh.
