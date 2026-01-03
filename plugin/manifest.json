@@ -2,18 +2,20 @@
   "uuid": "elephant",
   "name": "Elephant",
   "description": "Provides support for downloading videos from various sites.",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "icon": "icon.svg",
   "mediaParser": true,
   "mediaListParser": true,
   "minApiVersion": 6,
-  "minFeaturesLevel": 2,
+  "minFeaturesLevel": 3,
   "targetApiVersion": 6,
   "dependencies": {
-    "Python": {"minVersion": "3.10"}
+    "Python": {"minVersion": "3.10"},
+    "Deno": {"minVersion": "2.0.0"}
   },
   "permissions": [
-    "launchPython"
+    "launchPython",
+    "launchDeno"
   ],
   "scripts": [
     "tools.js",
