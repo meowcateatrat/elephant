@@ -19,7 +19,7 @@ Python 3.10 (or higher) and Deno 2.3 (or higher) are required. Both can be insta
 3. Windows: Launch build/build-windows.bat. Unix: Launch build/build-unix.sh.
 
 # Installation
-1. Build elephant.fda, or download a prebuilt one from GitHub Releases section.
+1. Build elephant.fda, or [download a prebuilt one](https://github.com/meowcateatrat/elephant/releases/latest/download/elephant.fda) from [GitHub Releases](https://github.com/meowcateatrat/elephant/releases) section.
 2. Install elephant.fda addon into FDM using its menu (make sure you have the latest FDM installed).
 
 # Troubleshooting
