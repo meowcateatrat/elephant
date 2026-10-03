@@ -4,9 +4,9 @@ __version__ = '2026.08.19'
 
 RELEASE_GIT_HEAD = '594bd50c2c78ac432f81600d309fdc4e0a92d82c'
 
-VARIANT = None
+VARIANT = 'pip'
 
-UPDATE_HINT = None
+UPDATE_HINT = 'You installed yt-dlp with pip or using the wheel from PyPi; Use that to update'
 
 CHANNEL = 'stable'
 

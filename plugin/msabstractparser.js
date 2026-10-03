@@ -1,5 +1,3 @@
-var g_browsers = Object.create(null);
-
 var msAbstractParser = (function()
 {
     function MsAbstractParser()
@@ -12,89 +10,50 @@ var msAbstractParser = (function()
         {
             console.log("parsing...");
 
-            let args = [];
-            let tmpCookies;
-            let systemUserAgent;
-            let systemBrowser;
-            let allowWbCookies = true;
-            
-            try
-            {
-                systemUserAgent = qtJsSystem.defaultUserAgent;
-                systemBrowser = qtJsSystem.defaultWebBrowser;
-                allowWbCookies = App.pluginsAllowWbCookies;
-            }
-            catch(e) {}
+            var args = [];
 
-            let proxyUrl = qtJsNetworkProxyMgr.proxyForUrl(obj.url).url();
+            var proxyUrl = qtJsNetworkProxyMgr.proxyForUrl(obj.url).url();
             if (proxyUrl)
-            {
-                proxyUrl = proxyUrl.replace(/^https:\/\//i, 'http://'); // FDM bug workaround
                 args.push("--proxy", proxyUrl);
-            }
 
             args.push("-J", "--flat-playlist", "--no-warnings", "--compat-options", "no-youtube-unavailable-videos");
-
-            if (allowWbCookies)
-            {
-                if (obj.cookies && obj.cookies.length)
-                {
-                    tmpCookies = qtJsTools.createTmpFile("request_" + obj.requestId + "_cookies");
-                    if (tmpCookies && tmpCookies.writeText(cookiesToNetscapeText(obj.cookies)))
-                        args.push("--cookies", tmpCookies.path);
-                }
-                else
-                {
-                    let browser = obj.browser || systemBrowser;
-                    if (browser)
-                    {
-                        if (!(browser in g_browsers))
-                        {
-                            return this.checkBrowser(obj.requestId, obj.interactive, browser)
-                                .then(() => this.parse(obj, customArgs));
-                        }
-                        else
-                        {
-                            // In case the current web browser is not supported,
-                            // let's try Mozilla Firefox as the most well-supported web browser.
-                            if (!g_browsers[browser] && browser !== "firefox")
-                            {
-                                browser = "firefox";
-                                
-                                if (!(browser in g_browsers))
-                                {
-                                    return this.checkBrowser(obj.requestId, obj.interactive, browser)
-                                        .then(() => this.parse(obj, customArgs));
-                                }
-                            }
-                            
-                            if (g_browsers[browser])
-                                args.push('--cookies-from-browser', browser);
-                        }
-                    }
-                }
-            }
-            
-            let userAgent = obj.userAgent || systemUserAgent;
-            if (userAgent)
-                args.push('--user-agent', userAgent);
+            args.push("--write-subs", "--write-auto-subs", "--sub-langs", "all");
+            args.push("--geo-bypass");
 
             if (customArgs.length)
                 args = args.concat(customArgs);
+
+            var isSubOnly = false;
+            var playlistIdx = "";
+            
+            if (obj.url.indexOf('dl_subtitle_only=1') !== -1) {
+                isSubOnly = true;
+                obj.url = obj.url.replace('&dl_subtitle_only=1', '').replace('?dl_subtitle_only=1', '');
+            }
+            
+            var match = obj.url.match(/[?&]playlist_index=([0-9]+)/);
+            if (match) {
+                playlistIdx = match[1];
+                obj.url = obj.url.replace('&playlist_index=' + playlistIdx, '').replace('?playlist_index=' + playlistIdx, '');
+            }
 
             args.push(obj.url);
 
             return launchPythonScript(obj.requestId, obj.interactive, "yt-dlp/yt_dlp/__main__.py", args)
             .then(function(obj)
             {
-                logPythonResult(obj);
+                console.log("Python result: ", obj.output);
 
                 return new Promise(function (resolve, reject)
                 {
-                    let output = obj.output.trim();
+                    var output = obj.output.trim();
+                    var startIndex = output.indexOf('{');
+                    if (startIndex !== -1) {
+                        output = output.substring(startIndex);
+                    }
                     if (!output || output[0] !== '{')
                     {
-                        let isUnsupportedUrl = /ERROR:\s*(\[generic\])?\s*Unsupported URL:/.test(obj.errorOutput);
+                        var isUnsupportedUrl = /ERROR:\s*\[generic\]\s*Unsupported URL:/.test(output);
                         reject({
                                    error: isUnsupportedUrl ? "Unsupported URL" : "Parse error",
                                    isParseError: !isUnsupportedUrl
@@ -102,7 +61,106 @@ var msAbstractParser = (function()
                     }
                     else
                     {
-                        resolve(JSON.parse(output));
+                        var parsed = JSON.parse(output);
+                        
+                        function filterSubs(subObj) {
+                            if (!subObj) return subObj;
+                            var filtered = {};
+                            var keepAll = false; // "option" to keep all if needed, but we hardcode false for clean UI
+                            
+                            for (var lang in subObj) {
+                                var l = lang.toLowerCase();
+                                if (l.startsWith('ar') || l.startsWith('en')) {
+                                    filtered[lang] = subObj[lang];
+                                }
+                            }
+                            // If they really want all languages in the future, we can change keepAll to true here
+                            return keepAll ? subObj : filtered;
+                        }
+                        
+                        function injectSubsAsFormats(subsObj, isAuto) {
+                            if (!subsObj || !parsed.formats) return;
+                            for (var lang in subsObj) {
+                                var subsArray = subsObj[lang];
+                                if (subsArray && subsArray.length > 0) {
+                                    var bestSub = null;
+                                    for(var i=0; i<subsArray.length; i++){
+                                        if(subsArray[i].ext === 'vtt' || subsArray[i].ext === 'srt'){
+                                            bestSub = subsArray[i];
+                                            break;
+                                        }
+                                    }
+                                    if(!bestSub) bestSub = subsArray[0];
+                                    
+                                    var tag = isAuto ? "(Auto)" : "";
+                                    parsed.formats.push({
+                                        format_id: "sub_" + lang + (isAuto ? "_auto" : ""),
+                                        ext: bestSub.ext,
+                                        vcodec: "none",
+                                        acodec: "aac", // Fake audio codec so FDM puts it in the Audio list
+                                        resolution: "Subtitle " + lang.toUpperCase(), // Helps FDM identify it in dropdowns
+                                        format_note: "SUBTITLE ONLY " + tag + " - " + lang.toUpperCase(),
+                                        format: "SUBTITLE ONLY " + tag + " - " + lang.toUpperCase(),
+                                        url: bestSub.url,
+                                        protocol: "https"
+                                    });
+                                }
+                            }
+                        }
+
+                        if (playlistIdx !== "") {
+                            if (parsed.title) parsed.title = playlistIdx + " - " + parsed.title;
+                            if (parsed._filename) parsed._filename = playlistIdx + " - " + parsed._filename;
+                            if (parsed.filename) parsed.filename = playlistIdx + " - " + parsed.filename;
+                        }
+                        
+                        if (parsed.subtitles) {
+                            parsed.subtitles = filterSubs(parsed.subtitles);
+                        }
+                        if (parsed.automatic_captions) {
+                            parsed.automatic_captions = filterSubs(parsed.automatic_captions);
+                        }
+
+                        if (isSubOnly) {
+                            parsed.formats = [];
+                            
+                            function extractSubsToFormats(subsObj) {
+                                if (!subsObj) return;
+                                for (var lang in subsObj) {
+                                    var subsArray = subsObj[lang];
+                                    if (subsArray && subsArray.length > 0) {
+                                        var bestSub = null;
+                                        for(var i=0; i<subsArray.length; i++){
+                                            if(subsArray[i].ext === 'vtt' || subsArray[i].ext === 'srt'){
+                                                bestSub = subsArray[i];
+                                                break;
+                                            }
+                                        }
+                                        if(!bestSub) bestSub = subsArray[0];
+                                        
+                                        parsed.formats.push({
+                                            format_id: "sub_" + lang,
+                                            ext: bestSub.ext,
+                                            vcodec: "avc1.4d401e", // Fake video codec to pass FDM batch filter
+                                            acodec: "mp4a.40.2",
+                                            width: 1920,
+                                            height: 1080,
+                                            resolution: "1080p",
+                                            url: bestSub.url,
+                                            protocol: "https"
+                                        });
+                                    }
+                                }
+                            }
+                            extractSubsToFormats(parsed.subtitles);
+                            extractSubsToFormats(parsed.automatic_captions);
+                        } else {
+                            // Inject them normally for single videos just in case
+                            if (parsed.subtitles) injectSubsAsFormats(parsed.subtitles, false);
+                            if (parsed.automatic_captions) injectSubsAsFormats(parsed.automatic_captions, true);
+                        }
+                        
+                        resolve(parsed);
                     }
                 });
             });
@@ -130,37 +188,10 @@ var msAbstractParser = (function()
             return /^https?:\/\//.test(obj.url);
         },
 
-        overrideUrlPolicy: function(url)
-        {
-            return true;
-        },
-        
-        minIntevalBetweenQueryInfoDownloads: function()
-        {
-            return 300;
-        },
-        
-        checkBrowser: function(requestId, interactive, browser)
-        {
-            console.log("Checking browser support (", browser, ")...");
-            
-            return launchPythonScript(requestId, interactive, "yt-dlp/yt_dlp/__main__.py", ['--cookies-from-browser', browser, 'e692ec362191442c960a761ac6b84878://test.test'])
-            .then(function(obj)
-            {
-                logPythonResult(obj);
-
-                return new Promise(function (resolve, reject)
-                {
-                    let isSupported = /"e692ec362191442c960a761ac6b84878"/.test(obj.errorOutput);
-                        
-                    console.log(browser, " supported: ", isSupported);
-                        
-                    g_browsers[browser] = isSupported;
-                        
-                    resolve();
-                });
-            });
-        }
+	overrideUrlPolicy: function(url)
+	{
+	    return true;
+	}
     };
 
     return new MsAbstractParser();
