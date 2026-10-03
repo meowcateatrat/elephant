@@ -1,27 +1,22 @@
 {
-  "uuid": "elephant",
-  "name": "Elephant",
-  "description": "Provides support for downloading videos from various sites.",
-  "version": "1.3.9",
-  "icon": "icon.svg",
-  "mediaParser": true,
-  "mediaListParser": true,
-  "minApiVersion": 6,
-  "minFeaturesLevel": 3,
-  "targetApiVersion": 6,
-  "dependencies": {
-    "Python": {"minVersion": "3.10"},
-    "Deno": {"minVersion": "2.3.0"}
-  },
-  "permissions": [
-    "launchPython",
-    "launchDeno"
-  ],
-  "scripts": [
-    "tools.js",
-    "msabstractparser.js",
-    "msparser.js",
-    "msbatchparser.js"
-  ],
-  "updateUrl": "https://free-addons.org/FDM/elephant-update.json"
+    "uuid": "super_elephant",
+    "name": "Super Elephant (Ahmed Edition)",
+    "description": "Ultimate video & subtitle downloader with the latest yt-dlp. Made for Ahmed.",
+    "version": "2.0.0",
+    "icon": "icon.svg",
+    "mediaParser": true,
+    "mediaListParser": true,
+    "dependencies": {
+        "Python": {
+            "minVersion": "3.7"
+        }
+    },
+    "permissions": [
+        "launchPython"
+    ],
+    "scripts": [
+        "msabstractparser.js",
+        "msparser.js",
+        "msbatchparser.js"
+    ]
 }

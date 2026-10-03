@@ -15,6 +15,7 @@ var msBatchVideoParser = (function()
             {
                 if (res.hasOwnProperty("entries"))
                 {
+                    var totalCount = res.entries.length;
                     for (let i = res.entries.length - 1; i >= 0; --i)
                     {
                         if (!res.entries[i].hasOwnProperty("title"))
@@ -23,6 +24,22 @@ var msBatchVideoParser = (function()
                                 res.entries[i].title === "[Private video]")
                         {
                             res.entries.splice(i, 1);
+                        } else {
+                            var idx = (i + 1).toString().padStart(totalCount > 99 ? 3 : 2, '0');
+                            var origTitle = res.entries[i].title;
+                            
+                            // Video Entry
+                            res.entries[i].title = idx + " - " + origTitle;
+                            var sep = res.entries[i].url.indexOf('?') === -1 ? '?' : '&';
+                            res.entries[i].url += sep + "playlist_index=" + idx;
+                            
+                            // Subtitle Entry
+                            var subEntry = JSON.parse(JSON.stringify(res.entries[i]));
+                            subEntry.title = "[SUBTITLE] " + subEntry.title;
+                            subEntry.id = subEntry.id + "_sub";
+                            subEntry.url += "&dl_subtitle_only=1";
+                            
+                            res.entries.splice(i + 1, 0, subEntry);
                         }
                     }
                 }
@@ -40,9 +57,7 @@ var msBatchVideoParser = (function()
 
         isPossiblySupportedSource: msAbstractParser.isPossiblySupportedSource,
 
-        overrideUrlPolicy: msAbstractParser.overrideUrlPolicy,
-        
-        minIntevalBetweenQueryInfoDownloads: msAbstractParser.minIntevalBetweenQueryInfoDownloads
+        overrideUrlPolicy: msAbstractParser.overrideUrlPolicy
     };
 
     return new MsBatchVideoParser();
