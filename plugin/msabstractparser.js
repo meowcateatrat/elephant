@@ -95,10 +95,15 @@ var msAbstractParser = (function()
                     if (!output || output[0] !== '{')
                     {
                         let isUnsupportedUrl = /ERROR:\s*(\[generic\])?\s*Unsupported URL:/.test(obj.errorOutput);
+                        let isBotCheck = !isUnsupportedUrl && /Sign in to confirm you['\u2019]re not a bot/.test(obj.errorOutput);
+                        let errDesc = isUnsupportedUrl ? "Unsupported URL" :
+                            isBotCheck ? "Addition actions are required. Please take a look at <a href='https://github.com/meowcateatrat/elephant/#troubleshooting'>Troubleshooting</a> section." :
+                            "Parse error";
                         reject({
-                                   error: isUnsupportedUrl ? "Unsupported URL" : "Parse error",
-                                   isParseError: !isUnsupportedUrl
-                               });
+                            error: errDesc,
+                            isParseError: !isUnsupportedUrl && !isBotCheck,
+                            isAdditionalActionsRequiredError: isBotCheck
+                        });
                     }
                     else
                     {
