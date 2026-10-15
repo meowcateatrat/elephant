@@ -84,6 +84,8 @@ var msAbstractParser = (function()
 
             args.push(obj.url);
 
+            let sourceName = /^https?:\/\/(?:[a-z0-9-]+\.)*(?:youtube\.com|youtu\.be|youtube-nocookie\.com)(?::\d+)?(?:[/?#]|$)/i.test(obj.url) ? "YouTube" : "Web site";
+
             return launchPythonScript(obj.requestId, obj.interactive, "yt-dlp/yt_dlp/__main__.py", args)
             .then(function(obj)
             {
@@ -97,7 +99,7 @@ var msAbstractParser = (function()
                         let isUnsupportedUrl = /ERROR:\s*(\[generic\])?\s*Unsupported URL:/.test(obj.errorOutput);
                         let isBotCheck = !isUnsupportedUrl && /Sign in to confirm you['\u2019]re not a bot/.test(obj.errorOutput);
                         let errDesc = isUnsupportedUrl ? "Unsupported URL" :
-                            isBotCheck ? "Addition actions are required. Please take a look at <a href='https://github.com/meowcateatrat/elephant/#troubleshooting'>Troubleshooting</a> section." :
+                            isBotCheck ? "Elephant add-on: " + sourceName + " requires cookies to download this video. See <a href='https://github.com/meowcateatrat/elephant/#troubleshooting'>Troubleshooting ↗</a>." :
                             "Parse error";
                         reject({
                             error: errDesc,
