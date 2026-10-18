@@ -109,7 +109,69 @@ var msAbstractParser = (function()
                     }
                     else
                     {
-                        resolve(JSON.parse(output));
+                        let parsed;
+                        try { parsed = JSON.parse(output); } catch (e) { parsed = null; }
+
+                        // Surface automatic captions as selectable subtitles.
+                        // FDM reads the "subtitles" field of yt-dlp's info JSON; auto-generated
+                        // captions live under "automatic_captions", so merge them in (without
+                        // clobbering any manual subtitle track for the same language).
+                        if (parsed && parsed.automatic_captions)
+                        {
+                            if (!parsed.subtitles || typeof parsed.subtitles !== "object")
+                                parsed.subtitles = {};
+
+                            for (const lang in parsed.automatic_captions)
+                            {
+                                const existing = parsed.subtitles[lang];
+                                const hasManual = Array.isArray(existing) && existing.length > 0;
+                                if (!hasManual)
+                                {
+                                    parsed.subtitles[lang] = (parsed.automatic_captions[lang] || []).map(function (entry)
+                                    {
+                                        const copy = Object.assign({}, entry);
+                                        if (!copy.name)
+                                            copy.name = lang + " (auto)";
+                                        else if (!/\(auto\)/i.test(copy.name))
+                                            copy.name = copy.name + " (auto)";
+                                        return copy;
+                                    });
+                                }
+                            }
+                        }
+
+                        // Same treatment for playlist entries.
+                        if (parsed && Array.isArray(parsed.entries))
+                        {
+                            for (let i = 0; i < parsed.entries.length; ++i)
+                            {
+                                const e = parsed.entries[i];
+                                if (e && e.automatic_captions)
+                                {
+                                    if (!e.subtitles || typeof e.subtitles !== "object")
+                                        e.subtitles = {};
+                                    for (const lang in e.automatic_captions)
+                                    {
+                                        const existing = e.subtitles[lang];
+                                        const hasManual = Array.isArray(existing) && existing.length > 0;
+                                        if (!hasManual)
+                                        {
+                                            e.subtitles[lang] = (e.automatic_captions[lang] || []).map(function (entry)
+                                            {
+                                                const copy = Object.assign({}, entry);
+                                                if (!copy.name)
+                                                    copy.name = lang + " (auto)";
+                                                else if (!/\(auto\)/i.test(copy.name))
+                                                    copy.name = copy.name + " (auto)";
+                                                return copy;
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        resolve(parsed || JSON.parse(output));
                     }
                 });
             });
