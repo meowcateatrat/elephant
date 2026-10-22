@@ -51,14 +51,14 @@ class MemoryLRUPCP(PoTokenCacheProvider, BuiltinIEContentProvider):
             if key not in self.cache:
                 return None
             value, expires_at = self.cache.pop(key)
-            if expires_at < int(dt.datetime.now(dt.UTC).timestamp()):
+            if expires_at < int(dt.datetime.now(dt.timezone.utc).timestamp()):
                 return None
             self.cache[key] = (value, expires_at)
             return value
 
     def store(self, key: str, value: str, expires_at: int):
         with self.lock:
-            if expires_at < int(dt.datetime.now(dt.UTC).timestamp()):
+            if expires_at < int(dt.datetime.now(dt.timezone.utc).timestamp()):
                 return
             if key in self.cache:
                 self.cache.pop(key)

@@ -431,7 +431,7 @@ class AwsIdp:
         months = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
         days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-        time_now = dt.datetime.now(dt.UTC)
+        time_now = dt.datetime.now(dt.timezone.utc)
         format_string = f'{days[time_now.weekday()]} {months[time_now.month]} {time_now.day} %H:%M:%S UTC %Y'
         return time_now.strftime(format_string)
 

@@ -70,7 +70,7 @@ class AbemaLicenseRH(RequestHandler):
             })
 
         res = decode_base_n(license_response['k'], table=self._STRTABLE)
-        encvideokey = list(res.to_bytes(16))
+        encvideokey = list(res.to_bytes(16, 'big'))
 
         h = hmac.new(
             binascii.unhexlify(self._HKEY),
