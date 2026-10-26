@@ -8,7 +8,7 @@ function cookiesToNetscapeText(cookies)
 		let c = cookies[i];
 		
 		r += c.domain + '\t' + 
-			 "FALSE" + '\t' +
+			 (c.domain.charAt(0) === "." ? "TRUE" : "FALSE") + '\t' +
 			 "/" + '\t' +
 			 (c.isSecure ? "TRUE" : "FALSE") + '\t' +
 			 (c.expirationDate.getTime() ? c.expirationDate.getTime() / 1000 : 0) + '\t' +
