@@ -98,13 +98,15 @@ var msAbstractParser = (function()
                     {
                         let isUnsupportedUrl = /ERROR:\s*(\[generic\])?\s*Unsupported URL:/.test(obj.errorOutput);
                         let isBotCheck = !isUnsupportedUrl && /Sign in to confirm you['\u2019]re not a bot/.test(obj.errorOutput);
+                        let isAgeCheck = !isUnsupportedUrl && /Sign in to confirm your age/.test(obj.errorOutput);
+                        let needCookies = isBotCheck || isAgeCheck;
                         let errDesc = isUnsupportedUrl ? "Unsupported URL" :
-                            isBotCheck ? "Elephant add-on: " + sourceName + " requires cookies to download this video. See <a href='https://github.com/meowcateatrat/elephant/#troubleshooting'>Troubleshooting ↗</a>." :
+                            needCookies ? "Elephant add-on: " + sourceName + " requires cookies to download this video. See <a href='https://github.com/meowcateatrat/elephant/#troubleshooting'>Troubleshooting ↗</a>." :
                             "Parse error";
                         reject({
                             error: errDesc,
-                            isParseError: !isUnsupportedUrl && !isBotCheck,
-                            isAdditionalActionsRequiredError: isBotCheck
+                            isParseError: !isUnsupportedUrl && !needCookies,
+                            isAdditionalActionsRequiredError: needCookies
                         });
                     }
                     else
