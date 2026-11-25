@@ -234,9 +234,15 @@ def partial_application(func):
 
 def find_xpath_attr(node, xpath, key, val=None):
     """ Find the xpath xpath[@key=val] """
-    assert re.match(r'^[a-zA-Z_-]+$', key)
-    expr = xpath + (f'[@{key}]' if val is None else f"[@{key}='{val}']")
-    return node.find(expr)
+    assert re.fullmatch(r'[a-zA-Z_-]+', key)
+    expr = f'{xpath}[@{key}]'
+    if val is None:
+        return node.find(expr)
+
+    val = str(val)
+    for n in node.iterfind(expr):
+        if n.get(key) == val:
+            return n
 
 
 def xpath_with_ns(path, ns_map):
@@ -984,7 +990,7 @@ class ExtractorError(YoutubeDLError):
         If expected is set, this is a normal error message and most likely not a bug in yt-dlp.
         """
         from ..networking.exceptions import network_exceptions
-        if sys.exc_info()[0] in network_exceptions:
+        if type(sys.exception()) in network_exceptions:
             expected = True
 
         self.orig_msg = str(msg)
@@ -1337,7 +1343,7 @@ def datetime_from_str(date_str, precision='auto', format='%Y%m%d'):
     if precision == 'auto':
         auto_precision = True
         precision = 'microsecond'
-    today = datetime_round(dt.datetime.now(dt.timezone.utc), precision)
+    today = datetime_round(dt.datetime.now(dt.UTC), precision)
     if date_str in ('now', 'today'):
         return today
     if date_str == 'yesterday':
