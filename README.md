@@ -10,7 +10,7 @@ Website: [free-addons.org](https://free-addons.org/).
 # Dependencies
 Free Download Manager 6.32 (or higher) is required.
 
-Python 3.10 (or higher) and Deno 2.3 (or higher) are required. Both can be installed by Free Download Manager automatically when installing add-on.
+Python 3.11 (or higher) and Deno 2.3 (or higher) are required. Both can be installed by Free Download Manager automatically when installing add-on.
 
 # Building
 > **_NOTE:_**  You don't have to build Elephant add-on on your own, if you don't want to. Just proceeed to the Installation section then.
